@@ -64,13 +64,19 @@ class DeviceProfile(
     val searchBarHeight = dpi(52f)                                  // search_bar_wrapper_height
     val searchBarRadius = dp(32f)                                   // search_bar_bg_radius
     val searchBarBottomMargin = (heightPx * 0.022f).roundToInt() + insets.bottom
-    val searchBarTop = heightPx - searchBarBottomMargin - searchBarHeight
+    /** The Apps search bar now sits at the top, just under the status bar. */
+    val searchBarTop = insets.top + (heightPx * 0.012f).roundToInt()
+    /** Where the apps list starts: just under the search bar. */
+    val appsListTop = searchBarTop + searchBarHeight + dpi(8f)
     val appsIndicatorHeight = (heightPx * 0.044f).roundToInt()     // apps_page_indicator_height_ratio
+    // same grid height as when the bar was at the bottom, so the cells keep their size
+    private val appsGridHeight = (heightPx - searchBarBottomMargin - searchBarHeight) - appsIndicatorHeight -
+        (heightPx * 0.012f).roundToInt() - (heightPx * 0.088f).roundToInt()
     val appsGrid = Rect(
         appsSidePadding,
-        (heightPx * 0.088f).roundToInt(),
+        appsListTop + dpi(6f),
         widthPx - appsSidePadding,
-        searchBarTop - appsIndicatorHeight - (heightPx * 0.012f).roundToInt(),
+        appsListTop + dpi(6f) + appsGridHeight,
     )
     val appsIndicatorRect = Rect(0, appsGrid.bottom, widthPx, appsGrid.bottom + appsIndicatorHeight)
 
