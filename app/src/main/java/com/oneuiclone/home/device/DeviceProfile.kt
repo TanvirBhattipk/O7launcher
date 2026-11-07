@@ -61,7 +61,9 @@ class DeviceProfile(
 
     // ---- apps screen ----
     val appsSidePadding = (widthPx * 0.038f).roundToInt()          // apps_page_side_padding_width_ratio
-    val searchBarWidth = widthPx - 2 * dpi(16f)                     // full width (was search_bar_width_entry_point_0_to_599)
+    /** Side margin of the search bar: its ends line up with the outer edges of the first and last icon columns. */
+    val searchBarSide = (appsSidePadding + (((widthPx - 2 * appsSidePadding) / appsCols - iconSizePx) / 2f)).roundToInt()
+    val searchBarWidth = widthPx - 2 * searchBarSide
     val searchBarHeight = dpi(52f)                                  // search_bar_wrapper_height
     val searchBarRadius = dp(32f)                                   // search_bar_bg_radius
     val searchBarBottomMargin = (heightPx * 0.022f).roundToInt() + insets.bottom
