@@ -464,7 +464,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
     }
 
     override fun onAppsChanged(apps: List<AppInfo>) {
-        searchSources.refresh()                        // first run: suggestions ready before search first opens
+        searchSources.refresh { refreshSuggested() }   // first run: suggestions ready before search first opens
         if (prefs.zoomInOpen || prefs.wallpaperOpen) splashLook.prefetch(apps.map { it.activityInfo })
         val m = model ?: return
         if (!bound && m.items.isEmpty()) {
@@ -1100,7 +1100,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
     private fun appsSiblings(): List<View> {
         val top = appsScroll.scrollY - appsGrid.top
         val bottom = top + appsScroll.height
-        return (0 until appsGrid.childCount).map { appsGrid.getChildAt(it) }.filter { it.bottom > top && it.top < bottom }
+        return (0 until appsGrid.childCount).map { appsGrid.getChildAt(it) }.filter { it is IconView && it.bottom > top && it.top < bottom }
     }
 
     @android.annotation.SuppressLint("ClickableViewAccessibility")
@@ -1315,27 +1315,48 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         if (themed && prefs.iconGlass) v.plateGlass = widgetGlass
     }
 
+    /** The apps in the Apps screen's first row (Pixel launcher's suggestions), as last drawn. */
+    private var shownSuggested: List<com.oneuiclone.home.model.AppKey> = emptyList()
+
+    /** The most used apps, as search ranks them: one row's worth, none until there is any usage to go by. */
+    private fun suggestedApps(apps: List<AppInfo>): List<AppInfo> {
+        val scores = searchSources.snapshot.scores
+        return apps.filter { (scores[it.key] ?: 0.0) > 0.0 }.sortedByDescending { scores[it.key] ?: 0.0 }.take(dp.appsCols)
+    }
+
+    /** New usage scores came in while the launcher was off screen: redraw the first row if they changed it. */
+    private fun refreshSuggested() {
+        val r = repo ?: return
+        if (::dp.isInitialized && suggestedApps(r.apps).map { it.key } != shownSuggested) bindApps()
+    }
+
     fun bindApps() {
         val r = repo ?: return
         val apps = r.apps                                       // already sorted A–Z (Collator)
-        val rows = maxOf(1, (apps.size + dp.appsCols - 1) / dp.appsCols)
+        val suggested = suggestedApps(apps)
+        shownSuggested = suggested.map { it.key }
+        val lead = if (suggested.isNotEmpty()) 1 else 0         // the suggestions take the first row
+        val rows = maxOf(1, (apps.size + dp.appsCols - 1) / dp.appsCols) + lead
         appsGrid.removeAllViews()
         appsGrid.rows = rows
         val topGap = dp.appsGrid.top - dp.appsListTop
         val bottomGap = insets.bottom + dp.dpi(16f)          // last row clears the navigation bar
         appsGrid.setPadding(dp.appsGrid.left, topGap, dp.widthPx - dp.appsGrid.right, bottomGap)
         appsGrid.layoutParams = appsGrid.layoutParams.apply { height = topGap + rows * (dp.appsGrid.height() / dp.appsRows) + bottomGap }
-        apps.forEachIndexed { i, app ->
-            appsGrid.addCell(IconView(activity, dp).apply {
-                setAppsIcon(this, app)
-                label = app.label
-                contentDescription = app.label
-                appInfo = app
-                showLabel = prefs.appsLabels
-                setOnClickListener { launch(this, app) }
-                attachItem(this, null, app, true) { appsSiblings() }
-            }, i % dp.appsCols, i / dp.appsCols)
+        fun appIcon(app: AppInfo) = IconView(activity, dp).apply {
+            setAppsIcon(this, app)
+            label = app.label
+            contentDescription = app.label
+            appInfo = app
+            showLabel = prefs.appsLabels
+            setOnClickListener { launch(this, app) }
+            attachItem(this, null, app, true) { appsSiblings() }
         }
+        if (lead == 1) {
+            appsGrid.addCell(com.oneuiclone.home.ui.SuggestedRowBackground(activity, dp), 0, 0, dp.appsCols, 1)
+            suggested.forEachIndexed { i, app -> appsGrid.addCell(appIcon(app), i, 0) }
+        }
+        apps.forEachIndexed { i, app -> appsGrid.addCell(appIcon(app), i % dp.appsCols, i / dp.appsCols + lead) }
         updateBadges()
     }
 
@@ -1930,7 +1951,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
 
     fun onStop() {
         com.oneuiclone.home.widgets.SplitLaunch.homeStopped()   // a split's top app covers Home: the bottom one can go
-        searchSources.refresh()                        // Home is off screen: suggestions can change unseen
+        searchSources.refresh { refreshSuggested() }   // Home is off screen: suggestions can change unseen
         quickOpen?.close(animate = false)
         if (pendingLaunch != null) AnimLog.log("stopped with a held launch: dropped")
         pendingLaunch = null
