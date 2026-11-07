@@ -60,13 +60,19 @@ class SearchSources(
      * Call it while search is closed; an open search keeps the snapshot it opened with either way.
      */
     fun refresh(force: Boolean = false, done: (() -> Unit)? = null) {
-        if (refreshing || (!force && System.currentTimeMillis() - saved.getLong(KEY_AT, 0L) < REFRESH_MS)) return
+        val allowed = usage.systemAllowed
+        // also early when nothing is ranked yet (a fresh install used to sit on an empty ranking for hours),
+        // and when usage access was just granted or taken away
+        val unranked = snapshot.scores.none { it.value > 0.0 }
+        val changed = saved.getBoolean(KEY_ALLOWED, false) != allowed
+        val stale = System.currentTimeMillis() - saved.getLong(KEY_AT, 0L) >= REFRESH_MS
+        if (refreshing || !(force || stale || unranked || changed)) return
         val list = apps()
         if (list.isEmpty()) return                                  // not loaded yet: try again next time
         refreshing = true
         worker.execute {
             val s = Snapshot(usage.scores(list), if (contactsAllowed) suggestedContacts(MAX_SUGGESTED) else emptyList())
-            save(s)
+            save(s, allowed)
             main.post { snapshot = s; refreshing = false; done?.invoke() }
         }
     }
@@ -85,13 +91,14 @@ class SearchSources(
         opened.edit().putInt(k, opened.getInt(k, 0) + 1).apply()
     }
 
-    private fun save(s: Snapshot) {
+    private fun save(s: Snapshot, allowed: Boolean) {
         val scores = JSONObject()
         for ((k, v) in s.scores) if (v > 0.0) scores.put(k.flatten(), v)
         saved.edit()
             .putString(KEY_SCORES, scores.toString())
             .putString(KEY_CONTACTS, JSONArray(s.contacts.map { it.uri.toString() }).toString())
             .putLong(KEY_AT, System.currentTimeMillis())
+            .putBoolean(KEY_ALLOWED, allowed)
             .apply()
     }
 
@@ -178,9 +185,10 @@ class SearchSources(
         const val MAX_SUGGESTED = 6
         /** Matching contacts while typing (two rows of two). */
         const val MAX_MATCHES = 4
-        private const val REFRESH_MS = 6 * 60 * 60 * 1000L
+        private const val REFRESH_MS = 10 * 60 * 1000L
         private const val KEY_SCORES = "scores"
         private const val KEY_CONTACTS = "contacts"
         private const val KEY_AT = "at"
+        private const val KEY_ALLOWED = "usage_allowed"
     }
 }
