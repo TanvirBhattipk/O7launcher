@@ -263,8 +263,7 @@ class AppsSearch(
         })
         field.setOnEditorActionListener { _, action, ev ->
             if (action == EditorInfo.IME_ACTION_GO || ev?.keyCode == KeyEvent.KEYCODE_ENTER) {
-                val target = enterTarget
-                if (target != null) target.performClick() else field.text.toString().trim().takeIf { it.isNotEmpty() }?.let { webSearch(it) }
+                enterTarget?.performClick()
                 true
             } else false
         }
@@ -295,19 +294,12 @@ class AppsSearch(
             pendingFetch?.let { main.removeCallbacks(it) }
             pendingSources?.let { main.removeCallbacks(it) }
             appsList = mostUsed()
-            contactsList = suggested
-            webList = emptyList()
             render()
             return
         }
+        // apps only: no contacts and no Google suggestions
         appsList = matches(query)
-        // until the new answers land: the typed query, and whatever of the last ones still fits it
-        val raw = q.trim()
-        webList = listOf(raw) + webList.drop(1).filter { it.startsWith(raw, ignoreCase = true) && !it.equals(raw, ignoreCase = true) }
-        contactsList = contactsList.filter { c -> normalize(c.name).split(' ', '-', '.').any { it.startsWith(query) } }.take(SearchSources.MAX_MATCHES)
         render()
-        fetchSuggestions(raw)
-        querySources(raw)
     }
 
     /** The [MAX_APPS] most used apps that aren't on Home page 1 (topped up from the rest when there's little history). */
@@ -345,24 +337,8 @@ class AppsSearch(
      */
     private fun render() {
         showApps(appsList)
-        val left = space() - results.layoutParams.height
-        val gap = dp.dpi(SECTION_GAP_DP)
-        val chipGap = dp.dpi(CHIP_GAP_DP)
-        val invite = !sources.contactsAllowed && !searchPrefs.getBoolean(KEY_CONTACTS_DECLINED, false)
-        if (field.text.isNullOrBlank()) {
-            val chip = ((left - gap - (SUGGESTED_ROWS - 1) * chipGap) / SUGGESTED_ROWS).coerceIn(dp.dpi(CHIP_DP), dp.dpi(CHIP_MAX_DP))
-            val rows = ((left - gap + chipGap) / (chip + chipGap)).coerceIn(0, SUGGESTED_ROWS)
-            showContacts(if (invite) emptyList() else contactsList.take(rows * 2), invite && rows > 0, chip)
-            showWeb(emptyList())
-        } else {
-            val chip = dp.dpi(CHIP_DP)
-            fun height(rows: Int) = if (rows == 0) 0 else rows * chip + (rows - 1) * chipGap + gap
-            fun webFits(h: Int) = ((h - gap - 2 * dp.dpi(CARD_PAD_DP)) / dp.dpi(ROW_DP)).coerceIn(0, MAX_WEB)
-            var rows = if (invite) 1 else (contactsList.size + 1) / 2
-            while (rows > 0 && webFits(left - height(rows)) < 1) rows--
-            showContacts(if (invite) emptyList() else contactsList.take(rows * 2), invite && rows > 0, chip)
-            showWeb(webList.take(webFits(left - height(rows)).coerceAtLeast(1)))
-        }
+        showContacts(emptyList(), false, dp.dpi(CHIP_DP))      // kept empty: contacts are no longer searched
+        showWeb(emptyList())                                    // and neither is the web
         updateEnterTarget()
     }
 
@@ -721,14 +697,14 @@ class AppsSearch(
         pill.x = lerp(r.left, margin, f)
         pill.y = top
         pillBg.cornerRadius = h / 2f
-        pillBg.setColor(argb.evaluate(f, o.fill, colors.open) as Int)
-        pillBg.setStroke(dp.dpi(1f), argb.evaluate(f, o.stroke, colors.stroke) as Int)
-        // the pill's own look at the start and end: its glass under the fill, and its ink fading into the bar's
+        // the bar keeps the pill's look (the Home screen Search button's glass, tint and thin border) the whole way
+        pillBg.setColor(o.fill)
+        pillBg.setStroke(dp.dpi(1f), o.stroke)
         pillGlass = o.glass
-        val ink = argb.evaluate(f, o.ink ?: colors.hint, colors.hint) as Int
+        val ink = o.ink ?: colors.hint
         glyph.color = ink
         field.setHintTextColor(ink)
-        pill.elevation = lerp(o.elevation, dp.dp(8f), f)              // search_bar_elevation
+        pill.elevation = lerp(o.elevation, 0f, f)
         val gs = lerp(o.glyphBox, openGlyphBox, f) / openGlyphBox
         glyph.scaleX = gs; glyph.scaleY = gs
         glyph.translationX = lerp(o.glyphLeft, openGlyphLeft, f) - openGlyphLeft
@@ -776,6 +752,7 @@ class AppsSearch(
     fun open(from: Origin, fromAbove: Boolean = false) {
         sources.snapshot.let { scores = it.scores; suggested = it.contacts }
         origin = from
+        field.setTextColor(if (from.ink != null) 0xFFFFFFFF.toInt() else colors.text)   // white on the glass
         isOpen = true
         visibility = VISIBLE
         kb = rememberedKeyboard(); kbTarget = kb
