@@ -325,7 +325,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         prefsSnapshot = snapshot()
         val newDp = DeviceProfile(w, h, activity.resources.displayMetrics.density, insets,
             homeCols = prefs.homeCols, homeRows = prefs.homeRows, appsCols = prefs.appsCols, appsRows = prefs.appsRows,
-            iconScale = prefs.iconScale / 100f)
+            iconScale = prefs.iconScale / 100f, labelScale = prefs.labelScale / 100f)
         ripple = com.oneuiclone.home.ui.TouchRipple(newDp.samsungPxScale)
         val iconChanged = !::dp.isInitialized || dp.iconSizePx != newDp.iconSizePx
         dp = newDp
@@ -422,7 +422,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         }
 
         val listTop = dp.appsListTop
-        appsScroll = android.widget.ScrollView(activity).apply {
+        appsScroll = com.oneuiclone.home.ui.BouncyScrollView(activity, dp).apply {
             isVerticalScrollBarEnabled = false
             isVerticalFadingEdgeEnabled = true
             setFadingEdgeLength(dp.dpi(24f))
@@ -439,17 +439,24 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         appsLayer.addView(appsScroll, FrameLayout.LayoutParams(MATCH_PARENT, dp.heightPx - listTop).apply {
             topMargin = listTop
         })
+        // full width, drawn like the Home screen's Search button (same glass, tint and thin border)
         searchPill = SearchPill(activity, dp, activity.getString(R.string.search_hint))
+        searchPill.glassTransparency = homeSearch.glassTransparency
+        searchPill.glass = widgetGlass
         searchPill.setOnClickListener { openSearch() }
-        val gap = dp.dpi(8f)
-        val total = dp.searchBarWidth + gap + dp.searchBarHeight
+        val barLeft = (dp.widthPx - dp.searchBarWidth) / 2
         appsLayer.addView(searchPill, FrameLayout.LayoutParams(dp.searchBarWidth, dp.searchBarHeight).apply {
-            leftMargin = (dp.widthPx - total) / 2
+            leftMargin = barLeft
             topMargin = dp.searchBarTop
         })
-        moreButton = SearchPill(activity, dp, "", circle = true).apply { setOnClickListener { showAppsMenu(this) } }
+        // the menu (⋮) sits inside the bar, at its right end
+        moreButton = SearchPill(activity, dp, "", menuIcon = true).apply {
+            glassTransparency = homeSearch.glassTransparency
+            glass = widgetGlass
+            setOnClickListener { showAppsMenu(this) }
+        }
         appsLayer.addView(moreButton, FrameLayout.LayoutParams(dp.searchBarHeight, dp.searchBarHeight).apply {
-            leftMargin = (dp.widthPx - total) / 2 + dp.searchBarWidth + gap
+            leftMargin = barLeft + dp.searchBarWidth - dp.searchBarHeight
             topMargin = dp.searchBarTop
         })
         bound = false
