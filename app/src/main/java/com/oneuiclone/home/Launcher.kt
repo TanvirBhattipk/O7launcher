@@ -2027,6 +2027,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
     }
 
     fun onResume() {
+        searchSources.refresh { refreshSuggested() }   // e.g. back from granting usage access
         AppUpdate.onResumed(activity)
         AppUpdate.checkIfDue()
         // back before the app covered Home (a translucent app, or one that closed at once)
