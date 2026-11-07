@@ -239,21 +239,21 @@ class AppsSearch(
         })
         glyph.pivotX = 0f
         glyph.pivotY = dp.dpi(24f) / 2f
-        // bottom-up: apps resting on the bar, Google above them, contacts on top; fitted, never scrolled
+        // top-down: apps right under the bar, Google below them, contacts last; fitted, never scrolled
         content.orientation = LinearLayout.VERTICAL
-        content.gravity = Gravity.BOTTOM
+        content.gravity = Gravity.TOP
         content.clipChildren = false
-        for (box in listOf(contactsBox, web)) {
+        results.setPadding(dp.appsSidePadding, 0, dp.appsSidePadding, 0)
+        content.addView(results, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0))
+        for (box in listOf(web, contactsBox)) {
             box.orientation = LinearLayout.VERTICAL
             box.clipChildren = false
             content.addView(box, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                leftMargin = dp.dpi(14f); rightMargin = dp.dpi(14f); bottomMargin = dp.dpi(SECTION_GAP_DP)
+                leftMargin = dp.dpi(14f); rightMargin = dp.dpi(14f); topMargin = dp.dpi(SECTION_GAP_DP)
             })
             box.visibility = GONE
         }
-        results.setPadding(dp.appsSidePadding, 0, dp.appsSidePadding, 0)
-        content.addView(results, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0))
-        addView(content, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT).apply { topMargin = dp.insets.top + dp.dpi(24f) })
+        addView(content, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT).apply { topMargin = contentTop() })
         addView(pill, LayoutParams(dp.searchBarWidth, dp.searchBarHeight))
 
         field.addTextChangedListener(object : TextWatcher {
@@ -332,7 +332,7 @@ class AppsSearch(
     // fitting it all above the bar
     // ---------------------------------------------------------------------------------------------
 
-    /** Height the results have: from under the status bar to just above the search bar. */
+    /** Height the results have: from just under the search bar (top) to just above the keyboard. */
     private fun space(): Int {
         val lp = content.layoutParams as LayoutParams
         return dp.heightPx - lp.topMargin - lp.bottomMargin
@@ -699,8 +699,11 @@ class AppsSearch(
 
     private fun lerp(a: Float, b: Float, t: Float) = a + (b - a) * t
 
-    /** Top of a bar of height [h] resting 12dp above a keyboard [keyboard] px tall (or the navigation bar). */
-    private fun barTop(keyboard: Float, h: Float) = dp.heightPx - maxOf(keyboard, dp.insets.bottom.toFloat()) - dp.dp(12f) - h
+    /** The bar rests at the top, on the same line as the Apps screen's pill; the keyboard no longer moves it. */
+    private fun barTop() = dp.searchBarTop.toFloat()
+
+    /** Results start just under the bar. */
+    private fun contentTop() = dp.searchBarTop + dp.searchBarHeight + dp.dpi(8f)
 
     private fun layoutPill() {
         if (!::origin.isInitialized) return
@@ -709,9 +712,7 @@ class AppsSearch(
         val h = lerp(r.height(), dp.searchBarHeight.toFloat(), f)
         val margin = dp.dp(16f)
         val w = lerp(r.width(), dp.widthPx - 2 * margin, f)
-        val own = lerp(r.top, barTop(kb, dp.searchBarHeight.toFloat()), f)
-        // whichever is higher: the bar's own motion, or the keyboard pushing it up (never behind the keyboard)
-        val top = if (ime > 0) minOf(own, barTop(ime.toFloat(), h)) else own
+        val top = lerp(r.top, barTop(), f)
         val lp = pill.layoutParams
         if (lp.width != w.roundToInt() || lp.height != h.roundToInt()) {
             lp.width = w.roundToInt(); lp.height = h.roundToInt()
@@ -737,11 +738,15 @@ class AppsSearch(
         field.translationX = lerp(o.textStart, openTextStart, f) - openTextStart * ts
     }
 
-    /** Results end just above where the bar settles. */
+    /** Results run from under the bar down to just above the keyboard (or the navigation bar). */
     private fun updateContentInset() {
         val lp = content.layoutParams as LayoutParams
-        val m = (dp.heightPx - barTop(kbTarget, dp.searchBarHeight.toFloat()) + dp.dp(8f)).roundToInt()
-        if (lp.bottomMargin != m) { lp.bottomMargin = m; content.layoutParams = lp }
+        val top = contentTop()
+        val bottom = (maxOf(kbTarget, dp.insets.bottom.toFloat()) + dp.dp(8f)).roundToInt()
+        if (lp.topMargin != top || lp.bottomMargin != bottom) {
+            lp.topMargin = top; lp.bottomMargin = bottom
+            content.layoutParams = lp
+        }
     }
 
     private fun rememberedKeyboard(): Float =
@@ -764,10 +769,10 @@ class AppsSearch(
         }
     }
 
-    /** No keyboard came up (hardware keyboard, IME refused): settle at the bottom rather than float. */
+    /** No keyboard came up (hardware keyboard, IME refused): settle the keyboard inset to zero rather than float. */
     private val noKeyboard = Runnable { if (isOpen && ime == 0 && !imeAnimating) retargetKeyboard(0f) }
 
-    /** [fromAbove]: a swipe down opened it, so the results drop into place instead of rising (same fade, length and curve). */
+    /** The bar is at the top, so the results always drop in from it ([fromAbove] is kept for callers but no longer changes the motion). */
     fun open(from: Origin, fromAbove: Boolean = false) {
         sources.snapshot.let { scores = it.scores; suggested = it.contacts }
         origin = from
@@ -782,7 +787,7 @@ class AppsSearch(
         opening = false
         // everything at once: a fade and a slide (up, or down after a swipe down), with the bar's morph
         content.alpha = 0f
-        content.translationY = dp.dp(OPEN_RISE_DP) * if (fromAbove) -1f else 1f
+        content.translationY = -dp.dp(OPEN_RISE_DP)          // the bar is at the top: results drop in from it
         content.animate().alpha(1f).translationY(0f).setDuration(OPEN_MS).setInterpolator(Easing.IME).start()
         animateTo(1f)
         field.isCursorVisible = true
