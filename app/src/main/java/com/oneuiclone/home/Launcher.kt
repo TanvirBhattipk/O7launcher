@@ -421,7 +421,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
             }
         }
 
-        val listTop = insets.top
+        val listTop = dp.appsListTop
         appsScroll = android.widget.ScrollView(activity).apply {
             isVerticalScrollBarEnabled = false
             isVerticalFadingEdgeEnabled = true
@@ -435,8 +435,8 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         }
         appsGrid = CellLayout(activity, dp.appsCols, 1)
         appsScroll.addView(appsGrid, FrameLayout.LayoutParams(MATCH_PARENT, dp.appsGrid.height() / dp.appsRows))
-        // the list ends just above the floating search pill
-        appsLayer.addView(appsScroll, FrameLayout.LayoutParams(MATCH_PARENT, dp.searchBarTop - dp.dpi(8f) - listTop).apply {
+        // the list starts just under the floating search pill (now at the top) and runs to the bottom of the screen
+        appsLayer.addView(appsScroll, FrameLayout.LayoutParams(MATCH_PARENT, dp.heightPx - listTop).apply {
             topMargin = listTop
         })
         searchPill = SearchPill(activity, dp, activity.getString(R.string.search_hint))
@@ -1314,9 +1314,10 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         val rows = maxOf(1, (apps.size + dp.appsCols - 1) / dp.appsCols)
         appsGrid.removeAllViews()
         appsGrid.rows = rows
-        val topGap = dp.appsGrid.top - insets.top
-        appsGrid.setPadding(dp.appsGrid.left, topGap, dp.widthPx - dp.appsGrid.right, 0)
-        appsGrid.layoutParams = appsGrid.layoutParams.apply { height = topGap + rows * (dp.appsGrid.height() / dp.appsRows) }
+        val topGap = dp.appsGrid.top - dp.appsListTop
+        val bottomGap = insets.bottom + dp.dpi(16f)          // last row clears the navigation bar
+        appsGrid.setPadding(dp.appsGrid.left, topGap, dp.widthPx - dp.appsGrid.right, bottomGap)
+        appsGrid.layoutParams = appsGrid.layoutParams.apply { height = topGap + rows * (dp.appsGrid.height() / dp.appsRows) + bottomGap }
         apps.forEachIndexed { i, app ->
             appsGrid.addCell(IconView(activity, dp).apply {
                 setAppsIcon(this, app)
