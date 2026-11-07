@@ -17,6 +17,7 @@ class DeviceProfile(
     val appsCols: Int = 4,
     val appsRows: Int = 6,
     val iconScale: Float = 1f,
+    val labelScale: Float = 1f,
 ) {
     fun dp(v: Float) = v * density
     fun dpi(v: Float) = (v * density).roundToInt()
@@ -51,7 +52,7 @@ class DeviceProfile(
 
     /** 66 % of the cell width (= 15.25 % of the screen at 4 columns, matching One UI screenshots). */
     val iconSizePx = (cellWidth * 0.66f * iconScale).roundToInt().coerceAtMost((cellHeight * 0.62f).roundToInt()).let { if (it % 2 == 1) it + 1 else it }
-    val labelTextSizePx = dp(13f)
+    val labelTextSizePx = dp(13f) * labelScale
     val iconLabelGapPx = dp(5.5f)
 
     // ---- page indicator (page_indicator_dot_size_sw_ratio = slot width) ----
@@ -60,7 +61,7 @@ class DeviceProfile(
 
     // ---- apps screen ----
     val appsSidePadding = (widthPx * 0.038f).roundToInt()          // apps_page_side_padding_width_ratio
-    val searchBarWidth = dpi(244f)                                  // search_bar_width_entry_point_0_to_599
+    val searchBarWidth = widthPx - 2 * dpi(16f)                     // full width (was search_bar_width_entry_point_0_to_599)
     val searchBarHeight = dpi(52f)                                  // search_bar_wrapper_height
     val searchBarRadius = dp(32f)                                   // search_bar_bg_radius
     val searchBarBottomMargin = (heightPx * 0.022f).roundToInt() + insets.bottom
