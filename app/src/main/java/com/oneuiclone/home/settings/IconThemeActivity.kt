@@ -95,6 +95,7 @@ class IconThemeActivity : OneUiPage() {
     /** Slider positions while dragged, previewed before they're saved. */
     private var liveTransparency: Int? = null
     private var liveScale: Int? = null
+    private var liveLabel: Int? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -117,7 +118,7 @@ class IconThemeActivity : OneUiPage() {
     private fun stripWidth() = resources.displayMetrics.widthPixels - dp(12f) * 2 - dp(14f) * 2
 
     private fun refreshDock() = preview.render(StylePreview.Look.of(prefs, iconScale = liveScale ?: prefs.iconScale,
-        transparency = liveTransparency ?: prefs.glassIconTransparency), stripWidth() / 3, stripWidth()) { _, dock -> dockStrip.bitmap = dock }
+        transparency = liveTransparency ?: prefs.glassIconTransparency, labelScale = liveLabel ?: prefs.labelScale), stripWidth() / 3, stripWidth()) { _, dock -> dockStrip.bitmap = dock }
 
     /**
      * Icon shape: a row with the current shape in a chip; tapping it opens every shape as a tile under it (tap one to
@@ -283,6 +284,12 @@ class IconThemeActivity : OneUiPage() {
         card {
             slider("Icon size", prefs.iconScale, 85, 115, onLive = { liveScale = it; refreshDock() }) {
                 prefs.iconScale = it; liveScale = null; refreshDock()
+            }
+        }
+        card {
+            header("Label size")
+            slider("App label size", prefs.labelScale, 70, 130, onLive = { liveLabel = it; refreshDock() }) {
+                prefs.labelScale = it; liveLabel = null; refreshDock()
             }
         }
         card {

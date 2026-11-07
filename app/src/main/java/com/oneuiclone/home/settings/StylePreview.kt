@@ -56,10 +56,10 @@ class StylePreview(private val activity: Activity) {
 
     /** The icon settings being previewed (sliders preview before they're saved). */
     data class Look(val iconScale: Int, val themed: Boolean, val themeAll: Boolean, val plateAlpha: Float, val labels: Boolean, val dark: Boolean,
-                    val minimal: Boolean, val look: String, val mode: String, val shape: String) {
+                    val minimal: Boolean, val look: String, val mode: String, val shape: String, val labelScale: Int = 100) {
         companion object {
             /** The saved settings, with any slider being dragged in their place. */
-            fun of(prefs: Prefs, iconScale: Int = prefs.iconScale, transparency: Int = prefs.glassIconTransparency) = Look(
+            fun of(prefs: Prefs, iconScale: Int = prefs.iconScale, transparency: Int = prefs.glassIconTransparency, labelScale: Int = prefs.labelScale) = Look(
                 iconScale = iconScale,
                 themed = prefs.themedIcons,
                 themeAll = prefs.themeAllApps,
@@ -70,6 +70,7 @@ class StylePreview(private val activity: Activity) {
                 look = prefs.iconLook,
                 mode = prefs.iconMode,
                 shape = prefs.iconShape,
+                labelScale = labelScale,
             )
         }
     }
@@ -185,9 +186,9 @@ class StylePreview(private val activity: Activity) {
     /** Height of the dock strip ([render]) at [outWidth] wide: the dock's band of Home, full width. */
     fun dockHeight(outWidth: Int): Int = (outWidth * profile(100).hotseatRect.height() / width.toFloat()).toInt()
 
-    private fun profile(iconScale: Int) = DeviceProfile(width, height, activity.resources.displayMetrics.density, insets,
+    private fun profile(iconScale: Int, labelScale: Int = 100) = DeviceProfile(width, height, activity.resources.displayMetrics.density, insets,
         homeCols = prefs.homeCols, homeRows = prefs.homeRows, appsCols = prefs.appsCols, appsRows = prefs.appsRows,
-        iconScale = iconScale / 100f)
+        iconScale = iconScale / 100f, labelScale = labelScale / 100f)
 
     /**
      * Draws Home with [look] at [homeWidth] wide, and its dock band at [dockWidth] (the first row when the dock is
@@ -197,7 +198,7 @@ class StylePreview(private val activity: Activity) {
     fun render(look: Look, homeWidth: Int, dockWidth: Int, done: (home: Bitmap, dock: Bitmap) -> Unit) {
         val l = loaded ?: return
         val gen = ++generation
-        val dp = profile(look.iconScale)
+        val dp = profile(look.iconScale, look.labelScale)
         val key = listOf(dp.iconSizePx, look.themed, look.themeAll, look.plateAlpha, look.dark, look.minimal, look.look, look.mode, look.shape, iconFactory.isNight())
         val draw = { made: Map<AppKey, Bitmap> ->
             if (gen == generation) drawHome(l, dp, look, made, homeWidth, dockWidth).let { (h, d) -> done(h, d) }

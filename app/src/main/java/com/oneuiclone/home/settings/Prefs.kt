@@ -16,6 +16,8 @@ class Prefs(context: Context) {
     var appsRows: Int get() = sp.getInt("apps_rows", 6); set(v) = sp.edit().putInt("apps_rows", v).apply()
     /** 85..115 % (Home Up range); stock small/medium/large = 90/100/110. */
     var iconScale: Int get() = sp.getInt("icon_scale", 100); set(v) = sp.edit().putInt("icon_scale", v).apply()
+    /** 70..130 % of the stock app label size (Icons › Label size), on Home, the Apps screen and search. */
+    var labelScale: Int get() = sp.getInt("label_scale", 100); set(v) = sp.edit().putInt("label_scale", v).apply()
     var homeLabels: Boolean get() = sp.getBoolean("home_labels", true); set(v) = sp.edit().putBoolean("home_labels", v).apply()
     var appsLabels: Boolean get() = sp.getBoolean("apps_labels", true); set(v) = sp.edit().putBoolean("apps_labels", v).apply()
     var swipeDownNotifications: Boolean get() = sp.getBoolean("swipe_down_notif", true); set(v) = sp.edit().putBoolean("swipe_down_notif", v).apply()
