@@ -233,7 +233,7 @@ class AppsSearch(
         }
         // always the open bar's width: sized to the shrinking pill, the hint would be cut ("Sear") near the end of
         // the morph; the pill clips it instead, and the scaled hint fits inside it at every step
-        pill.addView(field, LayoutParams(dp.widthPx - 2 * dp.dpi(16f), LayoutParams.MATCH_PARENT))
+        pill.addView(field, LayoutParams(dp.searchBarWidth, LayoutParams.MATCH_PARENT))
         pill.addView(glyph, LayoutParams(dp.dpi(24f), dp.dpi(24f), Gravity.START or Gravity.CENTER_VERTICAL).apply {
             leftMargin = dp.dpi(16f)
         })
@@ -686,7 +686,7 @@ class AppsSearch(
         val o = origin
         val r = o.rect
         val h = lerp(r.height(), dp.searchBarHeight.toFloat(), f)
-        val margin = dp.dp(16f)
+        val margin = dp.searchBarSide.toFloat()
         val w = lerp(r.width(), dp.widthPx - 2 * margin, f)
         val top = lerp(r.top, barTop(), f)
         val lp = pill.layoutParams

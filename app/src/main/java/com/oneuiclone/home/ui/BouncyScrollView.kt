@@ -11,27 +11,33 @@ import kotlin.math.abs
 import kotlin.math.sqrt
 
 /**
- * The Apps screen's list with a Pixel-launcher style bounce: while it scrolls the icons trail a little behind
- * (the lower ones more, so the rows ripple), and when it stops or hits an end they spring back past rest and settle.
+ * The Apps screen's list with a Pixel-launcher style bounce at its two ends only: pulling or flinging past the first
+ * icons (top) or the last icons (bottom) makes the icons nearest that end give way and spring back past rest, the
+ * effect fading out towards the middle of the screen. Scrolling through the middle of the list does nothing.
  * One spring drives every icon, so it stays cheap.
  */
 @SuppressLint("ViewConstructor")
 class BouncyScrollView(context: Context, private val dp: DeviceProfile) : ScrollView(context) {
 
-    private val maxOffset = dp.dp(26f)
+    private val maxOffset = dp.dp(34f)
     private val stiffness = 190f
     private val damping = 2f * 0.42f * sqrt(stiffness)         // damping ratio 0.42: a clear overshoot, then rest
+
+    /** -1: the bounce is at the start of the list, 1: at its end. */
+    private var edge = -1
+    private var running = false
 
     private var x = 0f                                          // the spring's offset, px
     private var v = 0f                                          // and its velocity, px/s
     private var last = 0L
-    private var running = false
 
     private val tick = Runnable { step() }
 
-    private fun kick(delta: Float) {
+    private fun kick(delta: Float, atEnd: Boolean) {
         if (delta == 0f) return
+        edge = if (atEnd) 1 else -1
         x = (x + delta).coerceIn(-maxOffset, maxOffset)
+        v += delta * 8f
         start()
     }
 
@@ -58,7 +64,7 @@ class BouncyScrollView(context: Context, private val dp: DeviceProfile) : Scroll
         postOnAnimation(tick)
     }
 
-    /** Offsets every icon in view: more the lower it is on screen; the rest are put back at zero. */
+    /** Offsets every icon in view: most the ones at the end that bounced, fading out towards the middle. */
     private fun applyOffsets() {
         val grid = getChildAt(0) as? ViewGroup ?: return
         val h = height.coerceAtLeast(1)
@@ -70,14 +76,9 @@ class BouncyScrollView(context: Context, private val dp: DeviceProfile) : Scroll
                 continue
             }
             val pos = ((top + c.height / 2f) / h).coerceIn(0f, 1f)
-            c.translationY = x * (0.4f + 0.9f * pos)
+            val w = if (edge < 0) 1f - pos else pos
+            c.translationY = x * 1.3f * w * w
         }
-    }
-
-    override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {
-        super.onScrollChanged(l, t, oldl, oldt)
-        // scrolling down (content moves up): the icons trail below where they belong
-        kick((t - oldt) * 0.8f)
     }
 
     override fun overScrollBy(
@@ -85,10 +86,14 @@ class BouncyScrollView(context: Context, private val dp: DeviceProfile) : Scroll
         maxOverScrollX: Int, maxOverScrollY: Int, isTouchEvent: Boolean,
     ): Boolean {
         val r = super.overScrollBy(deltaX, deltaY, scrollX, scrollY, scrollRangeX, scrollRangeY, maxOverScrollX, maxOverScrollY, isTouchEvent)
-        val atTop = scrollY <= 0 && deltaY < 0
-        val atBottom = scrollY >= scrollRangeY && deltaY > 0
-        // pulling past an end: the icons give way in the direction of the pull
-        if (atTop || atBottom) kick(-deltaY * 0.8f)
+        // how far this step would carry past an end (a drag, or a fling arriving): the icons give way that way
+        val target = scrollY + deltaY
+        val excess = when {
+            target < 0 -> target
+            target > scrollRangeY -> target - scrollRangeY
+            else -> 0
+        }
+        if (excess != 0) kick(-excess * 0.6f, excess > 0)
         return r
     }
 
