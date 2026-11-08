@@ -37,6 +37,8 @@ class AppInfo(
     val activityInfo: LauncherActivityInfo,
     /** Apps screen icon: always the app's own colours, even with theme icons on. */
     val drawerIcon: Bitmap = icon,
+    /** The label the app itself has; [label] is the name the user gave it, if any (see [AppNames]). */
+    val systemLabel: String = label,
 )
 
 /**
@@ -61,6 +63,9 @@ class AppRepository(private val context: Context, private val iconFactory: IconF
     @Volatile var iconShape = com.oneuiclone.home.icons.IconShape.SQUIRCLE
     /** Glass icons: how opaque a themed icon's plate is (1 = solid). */
     @Volatile var plateAlpha = 1f
+
+    /** The names the user gave apps. */
+    val names = AppNames(context)
 
     interface Listener { fun onAppsChanged(apps: List<AppInfo>) }
 
@@ -130,14 +135,15 @@ class AppRepository(private val context: Context, private val iconFactory: IconF
                     if (info.componentName.packageName == context.packageName) continue
                     val key = AppKey(info.componentName, serial)
                     val prev = old[key]
-                    val (icon, plain) = if (prev != null && prev.icon.width == size && prev.label == info.label.toString() && !force) {
+                    val systemLabel = info.label.toString()
+                    val (icon, plain) = if (prev != null && prev.icon.width == size && prev.systemLabel == systemLabel && !force) {
                         prev.icon to prev.drawerIcon
                     } else {
                         val raw = info.getIcon(context.resources.displayMetrics.densityDpi)
                         val d = if (user == Process.myUserHandle()) raw else context.packageManager.getUserBadgedIcon(raw, user)
                         iconFactory.homeIcon(d, size, night, themedIcons, themeAllApps, plateAlpha, darkIcons, info.componentName.packageName, minimalIcons, iconLook, iconMode)
                     }
-                    result += AppInfo(key, user, info.label.toString(), icon, info, plain)
+                    result += AppInfo(key, user, names.get(key) ?: systemLabel, icon, info, plain, systemLabel)
                 }
             }
             result.sortWith { a, b -> collator.compare(a.label, b.label) }
