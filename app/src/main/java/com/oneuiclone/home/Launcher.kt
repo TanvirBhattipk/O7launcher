@@ -422,7 +422,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         }
 
         val listTop = dp.appsListTop
-        appsScroll = com.oneuiclone.home.ui.BouncyScrollView(activity, dp).apply {
+        appsScroll = android.widget.ScrollView(activity).apply {
             isVerticalScrollBarEnabled = false
             isVerticalFadingEdgeEnabled = true
             setFadingEdgeLength(dp.dpi(24f))
@@ -439,6 +439,15 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         appsLayer.addView(appsScroll, FrameLayout.LayoutParams(MATCH_PARENT, dp.heightPx - listTop).apply {
             topMargin = listTop
         })
+        // a scroll thumb on the right edge, blurred glass like the search bar; it shows while scrolling and can be dragged
+        val scrollbar = com.oneuiclone.home.ui.DrawerScrollbar(activity, dp, appsScroll).apply {
+            glassTransparency = homeSearch.glassTransparency
+            glass = widgetGlass
+        }
+        appsLayer.addView(scrollbar, FrameLayout.LayoutParams(dp.dpi(28f), dp.heightPx - listTop, android.view.Gravity.END).apply {
+            topMargin = listTop
+        })
+        appsScroll.setOnScrollChangeListener { _, _, _, _, _ -> scrollbar.onScrolled() }
         // full width, drawn like the Home screen's Search button (same glass, tint and thin border)
         searchPill = SearchPill(activity, dp, activity.getString(R.string.search_hint))
         searchPill.glassTransparency = homeSearch.glassTransparency
@@ -1373,10 +1382,13 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         val rows = maxOf(1, (apps.size + dp.appsCols - 1) / dp.appsCols) + lead
         appsGrid.removeAllViews()
         appsGrid.rows = rows
+        // a gap between the suggested apps and All apps, with a thin line in the middle of it
+        appsGrid.gapAfterRow = if (lead == 1) 0 else -1
+        appsGrid.gapPx = if (lead == 1) dp.dpi(com.oneuiclone.home.ui.SuggestedRowBackground.GAP_DP) else 0
         val topGap = dp.appsGrid.top - dp.appsListTop
         val bottomGap = insets.bottom + dp.dpi(16f)          // last row clears the navigation bar
         appsGrid.setPadding(dp.appsGrid.left, topGap, dp.widthPx - dp.appsGrid.right, bottomGap)
-        appsGrid.layoutParams = appsGrid.layoutParams.apply { height = topGap + rows * (dp.appsGrid.height() / dp.appsRows) + bottomGap }
+        appsGrid.layoutParams = appsGrid.layoutParams.apply { height = topGap + rows * (dp.appsGrid.height() / dp.appsRows) + appsGrid.gapPx + bottomGap }
         fun appIcon(app: AppInfo) = IconView(activity, dp).apply {
             setAppsIcon(this, app)
             label = app.label
