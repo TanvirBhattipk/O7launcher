@@ -35,14 +35,16 @@ class PageIndicator(context: Context, private val slotPx: Float, private val dot
     /** Multiplies every dot's alpha. */
     var opacity = 1f
         set(v) { field = v; invalidate() }
+    /** 0..1: how much of the dots show. They are hidden until the pages scroll (Launcher fades them in and out). */
+    var dotsShown = 0f
+        set(v) { if (field != v) { field = v; invalidate() } }
+    /** The dots show whatever [dotsShown] says while this is true (page edit). */
+    var forceVisible: () -> Boolean = { false }
 
     private val dotsWidth get() = if (count > 1) slotPx * count else 0f
     fun leadingLeft() = (width - leadingPx) / 2f
-    private fun dotsLeft(): Float {
-        val centred = (width - dotsWidth) / 2f
-        if (leadingPx <= 0f) return centred
-        return centred + (leadingLeft() + leadingPx + leadingGapPx - centred) * leadingShown
-    }
+    /** The dots are centred: they take the Search pill's place while the pages scroll instead of sitting beside it. */
+    private fun dotsLeft(): Float = (width - dotsWidth) / 2f
     private fun leadingMoved() { if (width > 0) onLeadingMoved?.invoke(leadingLeft()) }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -78,10 +80,12 @@ class PageIndicator(context: Context, private val slotPx: Float, private val dot
 
     override fun onDraw(canvas: Canvas) {
         if (count <= 1) return
+        val shown = maxOf(dotsShown, if (forceVisible()) 1f else 0f)
+        if (shown <= 0f) return
         var x = dotsLeft() + slotPx / 2f
         val cy = height / 2f
         for (i in 0 until count) {
-            paint.alpha = (255 * opacity * alphas.getOrElse(i) { unselected }).toInt()
+            paint.alpha = (255 * opacity * shown * alphas.getOrElse(i) { unselected }).toInt()
             canvas.drawCircle(x, cy, dotPx / 2f, paint)
             x += slotPx
         }

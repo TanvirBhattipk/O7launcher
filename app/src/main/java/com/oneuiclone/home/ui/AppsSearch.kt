@@ -245,6 +245,11 @@ class AppsSearch(
         content.clipChildren = false
         results.setPadding(dp.appsSidePadding, 0, dp.appsSidePadding, 0)
         content.addView(results, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0))
+        // a thin line under the row, as on the Apps screen: what comes under it later has its own place
+        content.addView(View(context).apply { setBackgroundColor(0x59FFFFFF) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, maxOf(1, dp.dpi(1f))).apply {
+                leftMargin = dp.searchBarSide; rightMargin = dp.searchBarSide; topMargin = dp.dpi(6f)
+            })
         for (box in listOf(web, contactsBox)) {
             box.orientation = LinearLayout.VERTICAL
             box.clipChildren = false
@@ -357,9 +362,9 @@ class AppsSearch(
         shownApps = keys
         results.removeAllViews()
         if (enterTarget is IconView) enterTarget = null      // went with the old grid
-        results.rows = ((list.size + 3) / 4).coerceAtLeast(1)
+        results.rows = 1
         list.forEachIndexed { i, a ->
-            val v = IconView(context, dp).apply {
+            val v = SmallIcon().apply {
                 label = a.label; contentDescription = a.label
                 setOnClickListener { onLaunch(this, a) }
                 configureIcon(this, a)
@@ -623,6 +628,11 @@ class AppsSearch(
 
     private val slop = ViewConfiguration.get(context).scaledTouchSlop
     private var downX = 0f
+    /** An icon a little smaller than the Apps screen's. */
+    private inner class SmallIcon : IconView(context, dp) {
+        override val iconSize: Int get() = ((dp.iconSizePx * ICON_SCALE).roundToInt()).let { if (it % 2 == 1) it + 1 else it }
+    }
+
     private var downY = 0f
     private var swipedHome = false
 
@@ -681,37 +691,31 @@ class AppsSearch(
     /** Results start just under the bar. */
     private fun contentTop() = dp.searchBarTop + dp.searchBarHeight + dp.dpi(8f)
 
+    /**
+     * The bar sits at its place at the top the whole time; [f] (0 hidden … 1 shown) slides it in from above while it
+     * fades in, and back up while it fades out. It keeps the look of the pill it replaces (the Home screen Search
+     * button's glass, tint and thin border).
+     */
     private fun layoutPill() {
         if (!::origin.isInitialized) return
         val o = origin
-        val r = o.rect
-        val h = lerp(r.height(), dp.searchBarHeight.toFloat(), f)
-        val margin = dp.searchBarSide.toFloat()
-        val w = lerp(r.width(), dp.widthPx - 2 * margin, f)
-        val top = lerp(r.top, barTop(), f)
+        val h = dp.searchBarHeight
         val lp = pill.layoutParams
-        if (lp.width != w.roundToInt() || lp.height != h.roundToInt()) {
-            lp.width = w.roundToInt(); lp.height = h.roundToInt()
+        if (lp.width != dp.searchBarWidth || lp.height != h) {
+            lp.width = dp.searchBarWidth; lp.height = h
             pill.layoutParams = lp
         }
-        pill.x = lerp(r.left, margin, f)
-        pill.y = top
+        pill.x = dp.searchBarSide.toFloat()
+        pill.y = barTop() - dp.dp(BAR_SLIDE_DP) * (1f - f)
+        pill.alpha = f.coerceIn(0f, 1f)
         pillBg.cornerRadius = h / 2f
-        // the bar keeps the pill's look (the Home screen Search button's glass, tint and thin border) the whole way
         pillBg.setColor(o.fill)
         pillBg.setStroke(dp.dpi(1f), o.stroke)
         pillGlass = o.glass
         val ink = o.ink ?: colors.hint
         glyph.color = ink
         field.setHintTextColor(ink)
-        pill.elevation = lerp(o.elevation, 0f, f)
-        val gs = lerp(o.glyphBox, openGlyphBox, f) / openGlyphBox
-        glyph.scaleX = gs; glyph.scaleY = gs
-        glyph.translationX = lerp(o.glyphLeft, openGlyphLeft, f) - openGlyphLeft
-        val ts = lerp(o.textSizePx, openTextSize, f) / openTextSize
-        field.scaleX = ts; field.scaleY = ts
-        field.pivotY = h / 2f
-        field.translationX = lerp(o.textStart, openTextStart, f) - openTextStart * ts
+        pill.elevation = 0f
     }
 
     /** Results run from under the bar down to just above the keyboard (or the navigation bar). */
@@ -762,7 +766,7 @@ class AppsSearch(
         opening = true
         filter("")
         opening = false
-        // everything at once: a fade and a slide (up, or down after a swipe down), with the bar's morph
+        // the page shows from the top with a fade: the bar slides in from above, the results drop in from under it
         content.alpha = 0f
         content.translationY = -dp.dp(OPEN_RISE_DP)          // the bar is at the top: results drop in from it
         content.animate().alpha(1f).translationY(0f).setDuration(OPEN_MS).setInterpolator(Easing.IME).start()
@@ -819,7 +823,8 @@ class AppsSearch(
         net.shutdownNow()
         context.getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(field.windowToken, 0)
         field.isCursorVisible = false
-        content.animate().alpha(0f).translationY(if (lift) -dp.dp(OPEN_RISE_DP) else content.translationY).setDuration(150).start()
+        // the page goes back up the way it came, fading out
+        content.animate().alpha(0f).translationY(-dp.dp(OPEN_RISE_DP)).setDuration(CLOSE_MS).setInterpolator(Easing.IME).start()
         // the query dissolves into the hint, so the pill lands showing "Search" like the one it becomes
         if (field.length() > 0) field.animate().alpha(0f).setDuration(110).withEndAction {
             field.text = null
@@ -831,7 +836,7 @@ class AppsSearch(
     private fun animateTo(to: Float, end: (() -> Unit)? = null) {
         anim?.cancel()
         anim = ValueAnimator.ofFloat(f, to).apply {
-            duration = (MORPH_MS * abs(to - f)).toLong().coerceAtLeast(120L)
+            duration = ((if (to > f) OPEN_BAR_MS else CLOSE_MS) * abs(to - f)).toLong().coerceAtLeast(120L)
             interpolator = Easing.IME
             addUpdateListener { f = it.animatedValue as Float; layoutPill() }
             if (end != null) addListener(object : AnimatorListenerAdapter() {
@@ -857,11 +862,18 @@ class AppsSearch(
         private const val SECTION_GAP_DP = 10f
         private const val ROW_DP = 48f
         private const val CARD_PAD_DP = 6f
-        private const val MAX_APPS = 8
+        private const val MAX_APPS = 4                  // one row
         private const val MAX_WEB = 5
         private const val SUGGESTED_ROWS = SearchSources.MAX_SUGGESTED / 2
         /** Results rising in with the bar (MORPH_MS); the Apps screen's grid comes in the same way after a swipe up. */
         const val OPEN_MS = 425L
+        /** The bar slides in over this long, and out over [CLOSE_MS]. */
+        private const val OPEN_BAR_MS = 360L
+        private const val CLOSE_MS = 240L
+        /** How far above its place the bar starts (and ends) while it fades. */
+        private const val BAR_SLIDE_DP = 36f
+        /** The icons in the results, relative to the Apps screen's. */
+        private const val ICON_SCALE = 0.82f
         const val OPEN_RISE_DP = 48f
         private const val FADE_MS = 150L
         /** How long [askForKeyboard] keeps trying (the IME hand-over from an app has taken ~400 ms). */
