@@ -87,40 +87,13 @@ class WallpaperStyleActivity : OneUiPage() {
 
         card {
             row("Change wallpapers", null, primary, null, { pickPhoto() }, titleWeight = 600)
-            var strength: SeekBar? = null
-            lateinit var blurRow: LinearLayout
-            val blurSummary = "Soften the wallpaper behind your Home screen. Your lock screen stays as it is."
-            fun applyBlur() {
-                val summary = (blurRow.getChildAt(0) as LinearLayout).getChildAt(1) as TextView
-                summary.text = if (prefs.homeBlur) "Blurring your wallpaper…" else "Restoring your wallpaper…"
-                com.oneuiclone.home.ui.WallpaperBlur.apply(this@WallpaperStyleActivity, prefs.homeBlurLevel) { r ->
-                    summary.text = blurSummary
-                    // the wallpaper change reloaded the previews before the blurred and sharp copies were recorded
-                    if (r == com.oneuiclone.home.ui.WallpaperBlur.Result.DONE && !isDestroyed) build()
-                    if (r == com.oneuiclone.home.ui.WallpaperBlur.Result.NO_ACCESS && prefs.homeBlur) {
-                        prefs.homeBlur = false
-                        (blurRow.getChildAt(1) as Switch).isChecked = false
-                        Toast.makeText(this@WallpaperStyleActivity,
-                            "Set your wallpaper with Change wallpapers or Set as wallpaper in your photos app to blur it. " +
-                                "Live wallpapers can't be blurred.", Toast.LENGTH_LONG).show()
-                    }
-                }
-            }
-            blurRow = toggle("Blur wallpaper", blurSummary, prefs.homeBlur) {
-                if (prefs.homeBlur != it) { prefs.homeBlur = it; applyBlur() }
-                strength?.isEnabled = it
-            }
-            strength = slider("Blur strength", prefs.homeBlurAmount, 10, 100) {
-                prefs.homeBlurAmount = it
-                if (prefs.homeBlur) applyBlur()
-            }
-            strength.isEnabled = prefs.homeBlur
         }
         card {
-            header("Apps screen blur")
-            slider("App drawer background", prefs.appsBgBlur, 0, 100) { prefs.appsBgBlur = it }
-            slider("App drawer search bar", prefs.appsBarBlur, 0, 100) { prefs.appsBarBlur = it }
-            slider("Search bar", prefs.searchBarBlur, 0, 100) { prefs.searchBarBlur = it }
+            header("Apps screen opacity")
+            // the two bars follow the drawer's background: each shows at its own % of the background's
+            slider("App drawer background", prefs.appsBgOpacity, 0, 100) { prefs.appsBgOpacity = it }
+            slider("App drawer search bar", prefs.appsBarOpacity, 0, 100) { prefs.appsBarOpacity = it }
+            slider("Search bar", prefs.searchBarOpacity, 0, 100) { prefs.searchBarOpacity = it }
         }
         card {
             row("Colour palette", "Choose a palette based on colours from your wallpaper.", sub,

@@ -17,10 +17,13 @@ class Prefs(context: Context) {
     /** 85..115 % (Home Up range); stock small/medium/large = 90/100/110. */
     var iconScale: Int get() = sp.getInt("icon_scale", 100); set(v) = sp.edit().putInt("icon_scale", v).apply()
     /** 70..130 % of the stock app label size (Icons › Label size), on Home, the Apps screen and search. */
-    /** Blur (0..100 %) of the Apps screen's background, of the Apps screen's search bar and of the search bar. */
-    var appsBgBlur: Int get() = sp.getInt("apps_bg_blur", 100); set(v) = sp.edit().putInt("apps_bg_blur", v).apply()
-    var appsBarBlur: Int get() = sp.getInt("apps_bar_blur", 60); set(v) = sp.edit().putInt("apps_bar_blur", v).apply()
-    var searchBarBlur: Int get() = sp.getInt("search_bar_blur", 60); set(v) = sp.edit().putInt("search_bar_blur", v).apply()
+    /**
+     * Opacity (0..100 %) of the Apps screen's background (its frosted look: blur and dimming), of the Apps screen's
+     * search bar and of the search bar. A bar's own % is of the background's: the bar follows the background.
+     */
+    var appsBgOpacity: Int get() = sp.getInt("apps_bg_opacity", 100); set(v) = sp.edit().putInt("apps_bg_opacity", v).apply()
+    var appsBarOpacity: Int get() = sp.getInt("apps_bar_opacity", 100); set(v) = sp.edit().putInt("apps_bar_opacity", v).apply()
+    var searchBarOpacity: Int get() = sp.getInt("search_bar_opacity", 100); set(v) = sp.edit().putInt("search_bar_opacity", v).apply()
     var labelScale: Int get() = sp.getInt("label_scale", 100); set(v) = sp.edit().putInt("label_scale", v).apply()
     var homeLabels: Boolean get() = sp.getBoolean("home_labels", true); set(v) = sp.edit().putBoolean("home_labels", v).apply()
     var appsLabels: Boolean get() = sp.getBoolean("apps_labels", true); set(v) = sp.edit().putBoolean("apps_labels", v).apply()
@@ -78,7 +81,8 @@ class Prefs(context: Context) {
     var homeBlur: Boolean get() = sp.getBoolean("home_blur", false); set(v) = sp.edit().putBoolean("home_blur", v).apply()
     var homeBlurAmount: Int get() = sp.getInt("home_blur_amount", 40); set(v) = sp.edit().putInt("home_blur_amount", v).apply()
     /** 0..1 of the full blur, 0 when off. */
-    val homeBlurLevel: Float get() = if (homeBlur) homeBlurAmount / 100f else 0f
+    /** The baked wallpaper blur is gone (the Apps screen's own look is set by its opacity): always 0 = sharp. */
+    val homeBlurLevel: Float get() = 0f
 
     /**
      * App opening animation: [OPEN_ZOOM_IN] (the icon grows into a card, iOS-style; the default), [OPEN_SMOOTH] (Home
