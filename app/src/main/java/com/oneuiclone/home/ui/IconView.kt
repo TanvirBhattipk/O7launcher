@@ -62,7 +62,6 @@ open class IconView(context: Context, protected val dp: DeviceProfile) : View(co
             if (field == v) return
             field = v
             textPaint.color = if (v) 0xFF1D1D1F.toInt() else 0xFFFAFAFA.toInt()
-            if (v) textPaint.clearShadowLayer() else textPaint.setShadowLayer(dp.dp(2f), 0f, 0f, 0x59000000)
             invalidate()
         }
 
@@ -78,8 +77,7 @@ open class IconView(context: Context, protected val dp: DeviceProfile) : View(co
         textSize = dp.labelTextSizePx
         typeface = Fonts.ui(context, 400)
         textAlign = Paint.Align.CENTER
-        // text_shadow_radius 2 / dy 0 (One UI Home integers.xml)
-        setShadowLayer(dp.dp(2f), 0f, 0f, 0x59000000)
+        // no label shadow
     }
     private var drawnLabel: CharSequence = ""
     private val dst = Rect()

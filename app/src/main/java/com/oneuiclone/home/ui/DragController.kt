@@ -876,7 +876,6 @@ class DragController(
             textSize = 15f
             typeface = Fonts.ui(context, 600)
             gravity = Gravity.CENTER
-            setShadowLayer(dp.dp(2f), 0f, 0f, 0x59000000)
         }
         init {
             addView(label, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT).apply { topMargin = dp.insets.top })

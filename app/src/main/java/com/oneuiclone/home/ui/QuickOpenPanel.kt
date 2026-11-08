@@ -780,7 +780,6 @@ class QuickOpenPanel(
                     cell.addView(TextView(context).apply {
                         text = app.label
                         setTextColor(0xF2FFFFFF.toInt())
-                        setShadowLayer(dp(2f), 0f, dp(0.5f), 0x40000000)
                         setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                         typeface = Fonts.ui(context, 400)
                         isSingleLine = true

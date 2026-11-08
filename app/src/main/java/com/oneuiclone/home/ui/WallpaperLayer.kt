@@ -262,6 +262,14 @@ class WallpaperLayer(context: Context) : android.view.ViewGroup(context) {
         else android.graphics.BitmapFactory.decodeFile(ownFile.path)
     } catch (_: Exception) { null }
 
+    /** The wallpaper as the system has it: only readable with All files access, and not for a live wallpaper. */
+    private fun systemWallpaper(): Bitmap? = try {
+        if (!android.os.Environment.isExternalStorageManager() || wm.wallpaperInfo != null) null
+        else (wm.getDrawable() as? android.graphics.drawable.BitmapDrawable)?.bitmap?.let {
+            if (it.config == Bitmap.Config.HARDWARE) it.copy(Bitmap.Config.ARGB_8888, false) else it
+        }
+    } catch (_: Exception) { null }
+
     /** System wallpaper id, own-copy id and copy stamp the last [reload] saw. */
     @Volatile private var loaded = Triple(-2, -2, -2L)
     private fun ids() = Triple(wm.getWallpaperId(WallpaperManager.FLAG_SYSTEM), ownPrefs.getInt(KEY_SYSTEM_ID, -1), ownPrefs.getLong(KEY_COPY_STAMP, 0L))
@@ -284,9 +292,9 @@ class WallpaperLayer(context: Context) : android.view.ViewGroup(context) {
         if (w == 0 || h == 0 || destroyed) return
         io.execute {
             loaded = ids()
-            // Only the launcher's own copy: reading a wallpaper set elsewhere needs All files access, which Play
-            // doesn't allow for launchers. Without a copy the window blur fallback is used.
-            val src = ownWallpaper()
+            // The launcher's own copy, else (with All files access, asked for in setup) the wallpaper as the system
+            // has it. Without either, the window blur fallback is used.
+            val src = ownWallpaper() ?: systemWallpaper()
             android.util.Log.i("OneUiHome", "wallpaper copy: " + if (src == null) "none (system ${loaded.first}, copy ${loaded.second})" else "loaded (${loaded.first})")
             if (src == null) { main.post { if (!destroyed) { available = false; updateViews(); onLoaded?.invoke() } }; return@execute }
             val f = if (src.width == w && src.height == h) src else centerCrop(src, w, h)

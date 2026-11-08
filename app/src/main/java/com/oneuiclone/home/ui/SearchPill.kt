@@ -56,6 +56,14 @@ class SearchPill(context: Context, private val dp: DeviceProfile, private val hi
     var glassTransparency = 0f
         set(v) { field = v; applyColors(); invalidate() }
 
+    /** 0..1: how much of the pill's background (glass, tint and border) shows; the hint and glyph stay as they are. */
+    var backgroundOpacity = 1f
+        set(v) { field = v.coerceIn(0f, 1f); applyColors(); invalidate() }
+
+    private var baseFill = 0
+    private var baseStroke = 0
+    private fun scaled(c: Int) = (c and 0x00FFFFFF) or ((android.graphics.Color.alpha(c) * backgroundOpacity).toInt() shl 24)
+
     private val glassPaint = GlassPaint()
     private val toWindow = Matrix()
     private val drawnAt = Matrix()
@@ -84,8 +92,10 @@ class SearchPill(context: Context, private val dp: DeviceProfile, private val hi
 
     private fun applyColors() {
         val c = SearchColors.of(context)
-        fill.color = if (glass != null) searchGlassFill(context, glassTransparency) else c.homePill
-        border.color = c.stroke
+        baseFill = if (glass != null) searchGlassFill(context, glassTransparency) else c.homePill
+        baseStroke = c.stroke
+        fill.color = scaled(baseFill)
+        border.color = scaled(baseStroke)
         text.color = if (glass != null) SEARCH_GLASS_INK else c.hint
         glyph.color = text.color
         dots.color = text.color
@@ -101,7 +111,7 @@ class SearchPill(context: Context, private val dp: DeviceProfile, private val hi
     fun origin(left: Float, top: Float): AppsSearch.Origin {
         val i = inset
         return AppsSearch.Origin(
-            RectF(left + i, top + i, left + dp.searchBarWidth - i, top + dp.searchBarHeight - i), fill.color, border.color, 0f,
+            RectF(left + i, top + i, left + dp.searchBarWidth - i, top + dp.searchBarHeight - i), baseFill, baseStroke, 0f,
             dp.dp(16f) - i, dp.dp(24f), dp.dp(16f + 24f + 6f) - i, text.textSize,
             glass, if (glass != null) text.color else null,
         )
@@ -117,7 +127,10 @@ class SearchPill(context: Context, private val dp: DeviceProfile, private val hi
         rect.set(inset, inset, width - inset, height - inset)
         val r = rect.height() / 2f
         drawnAt.reset(); transformMatrixToGlobal(drawnAt)
-        if (glassPaint.aim(glass, drawnAt)) canvas.drawRoundRect(rect, r, r, glassPaint.paint)
+        if (glassPaint.aim(glass, drawnAt)) {
+            glassPaint.paint.alpha = (255 * backgroundOpacity).toInt()
+            canvas.drawRoundRect(rect, r, r, glassPaint.paint)
+        }
         canvas.drawRoundRect(rect, r, r, fill)
         canvas.drawRoundRect(rect, r, r, border)
         // magnifier glyph (24dp box)

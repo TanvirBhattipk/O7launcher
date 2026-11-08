@@ -192,7 +192,6 @@ class EditModeController(
                 typeface = Fonts.ui(context, 400)
                 gravity = Gravity.CENTER
                 maxLines = 2
-                setShadowLayer(dp.dp(2f), 0f, 0f, 0x59000000)
             }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = (dp.heightPx * 0.011f).toInt()                  // page_edit_button_icon_spacing
             })

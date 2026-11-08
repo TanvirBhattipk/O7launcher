@@ -87,6 +87,8 @@ class AppsSearch(
     private val onDismiss: () -> Unit,
     /** The blurred wallpaper under the bar (its own blur setting); null: the pill's own glass. */
     private val barGlass: WidgetGlass? = null,
+    /** 0..1: how much of the bar's background shows (Wallpaper and style › Apps screen opacity). */
+    private val barOpacity: Float = 1f,
     private val onClose: () -> Unit,
 ) : FrameLayout(context) {
 
@@ -149,6 +151,7 @@ class AppsSearch(
             pillGlass?.let { g ->
                 toWindow.reset(); pill.transformMatrixToGlobal(toWindow)
                 if (glassPaint.aim(g, toWindow)) {
+                    glassPaint.paint.alpha = (255 * barOpacity).toInt()
                     rect.set(bounds)
                     canvas.drawRoundRect(rect, pillBg.cornerRadius, pillBg.cornerRadius, glassPaint.paint)
                 }
@@ -697,6 +700,8 @@ class AppsSearch(
      * fades in, and back up while it fades out. It keeps the look of the pill it replaces (the Home screen Search
      * button's glass, tint and thin border).
      */
+    private fun withOpacity(c: Int) = (c and 0x00FFFFFF) or ((android.graphics.Color.alpha(c) * barOpacity).toInt() shl 24)
+
     private fun layoutPill() {
         if (!::origin.isInitialized) return
         val o = origin
@@ -710,8 +715,8 @@ class AppsSearch(
         pill.y = barTop() - dp.dp(BAR_SLIDE_DP) * (1f - f)
         pill.alpha = f.coerceIn(0f, 1f)
         pillBg.cornerRadius = h / 2f
-        pillBg.setColor(o.fill)
-        pillBg.setStroke(dp.dpi(1f), o.stroke)
+        pillBg.setColor(withOpacity(o.fill))
+        pillBg.setStroke(dp.dpi(1f), withOpacity(o.stroke))
         pillGlass = if (o.glass != null) (barGlass ?: o.glass) else null
         val ink = o.ink ?: colors.hint
         glyph.color = ink

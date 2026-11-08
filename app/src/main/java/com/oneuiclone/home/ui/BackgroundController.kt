@@ -40,8 +40,10 @@ class BackgroundController(
     /** Full-strength blur radius in px (tuned against One UI screenshots). */
     var maxRadiusPx = (activity.resources.displayMetrics.widthPixels * 0.16f)
 
-    /** 0..1 of the Apps screen's blur (Wallpaper and style › Apps screen blur). */
+    /** 0..1: the Apps screen's opacity (Wallpaper and style › Apps screen opacity): how much of its blur and dimming shows. */
     var appsBlurScale = 1f
+
+    private fun dimOf(k: Kind) = if (k == Kind.APPS || k == Kind.APPS_FOLDER) k.dim * appsBlurScale else k.dim
 
     private fun factor(k: Kind) = if (k == Kind.APPS || k == Kind.APPS_FOLDER) k.blurFactor * appsBlurScale else k.blurFactor
 
@@ -80,7 +82,7 @@ class BackgroundController(
         val p = progress
         val q = 1f - p
         val blur = p * factor(kind) + q * factor(from)
-        val dim = p * kind.dim + q * from.dim
+        val dim = p * dimOf(kind) + q * dimOf(from)
         if (wallpaper.available) {
             // launcher-drawn wallpaper: exact One UI pipeline (blur + colour curve), dim on top
             if (lastRadius != 0) { activity.window.setBackgroundBlurRadius(0); lastRadius = 0 }
