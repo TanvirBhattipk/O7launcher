@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
     <!-- apps-screen search: contacts (asked for from the search results) -->
+    <!-- reads the wallpaper itself (blur behind the Apps screen) without the user setting it again -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- search: most-used apps from the system's app usage (granted in Settings › Usage access) -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
