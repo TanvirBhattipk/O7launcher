@@ -115,12 +115,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
     val scrim = ScrimView(activity)
     val wallpaper = com.oneuiclone.home.ui.WallpaperLayer(activity).apply { drivesLive = true }
     /** Blurred wallpaper behind widgets set to Style › Blur. */
-    /** Blurred wallpaper under the Apps screen's search bar and under the search bar, each with its own blur (Wallpaper and style). */
-    private val appsBarGlass = com.oneuiclone.home.ui.WidgetGlass(prefs.appsBarBlur / 100f)
-    private val searchBarGlass = com.oneuiclone.home.ui.WidgetGlass(prefs.searchBarBlur / 100f)
-    private val widgetGlass = com.oneuiclone.home.ui.WidgetGlass().also { g ->
-        wallpaper.onLoaded = { g.rebuild(wallpaper); appsBarGlass.rebuild(wallpaper); searchBarGlass.rebuild(wallpaper); syncBlurredWallpaper() }
-    }
+    private val widgetGlass = com.oneuiclone.home.ui.WidgetGlass().also { g -> wallpaper.onLoaded = { g.rebuild(wallpaper); syncBlurredWallpaper() } }
     val background = BackgroundController(activity, scrim, wallpaper)
     val homeLayer = FrameLayout(activity)
     val appsLayer = FrameLayout(activity)
@@ -328,11 +323,10 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
 
     private fun setupProfile(w: Int, h: Int) {
         prefsSnapshot = snapshot()
-        // the three blurs of Wallpaper and style › Apps screen blur
-        background.appsBlurScale = prefs.appsBgBlur / 100f
+        // Wallpaper and style › Apps screen opacity
+        background.appsBlurScale = prefs.appsBgOpacity / 100f
         background.set(background.current, background.currentProgress)
-        appsBarGlass.setLevel(prefs.appsBarBlur / 100f, wallpaper)
-        searchBarGlass.setLevel(prefs.searchBarBlur / 100f, wallpaper)
+        if (::searchPill.isInitialized) searchPill.backgroundOpacity = prefs.appsBarOpacity / 100f * prefs.appsBgOpacity / 100f
         val newDp = DeviceProfile(w, h, activity.resources.displayMetrics.density, insets,
             homeCols = prefs.homeCols, homeRows = prefs.homeRows, appsCols = prefs.appsCols, appsRows = prefs.appsRows,
             iconScale = prefs.iconScale / 100f, labelScale = prefs.labelScale / 100f)
@@ -463,7 +457,8 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         // full width, drawn like the Home screen's Search button (same glass, tint and thin border)
         searchPill = SearchPill(activity, dp, activity.getString(R.string.search_hint))
         searchPill.glassTransparency = homeSearch.glassTransparency
-        searchPill.glass = appsBarGlass
+        searchPill.glass = widgetGlass
+        searchPill.backgroundOpacity = prefs.appsBarOpacity / 100f * prefs.appsBgOpacity / 100f
         searchPill.setOnClickListener { openSearch() }
         val barLeft = (dp.widthPx - dp.searchBarWidth) / 2
         appsLayer.addView(searchPill, FrameLayout.LayoutParams(dp.searchBarWidth, dp.searchBarHeight).apply {
@@ -473,7 +468,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         // the menu (⋮) sits inside the bar, at its right end
         moreButton = SearchPill(activity, dp, "", menuIcon = true).apply {
             glassTransparency = homeSearch.glassTransparency
-            glass = appsBarGlass
+            glass = widgetGlass
             setOnClickListener { showAppsMenu(this) }
         }
         appsLayer.addView(moreButton, FrameLayout.LayoutParams(dp.searchBarHeight, dp.searchBarHeight).apply {
@@ -2136,6 +2131,8 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
             setupProfile(root.width, root.height)
         }
         wallpaper.reloadIfChanged()
+        // back from granting Wallpaper access (All files access): read the wallpaper now
+        if (!wallpaper.available && android.os.Environment.isExternalStorageManager()) wallpaper.reload()
         syncBlurredWallpaper()
         // Home is showing with no close to play (a new instance after a recreate, or a return already under way):
         // Launchii's live wallpaper follows Home's zoom rather than a parked one.
@@ -2147,10 +2144,15 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
      * Blur wallpaper is baked into the system Home wallpaper (nothing blurs at runtime). If it was replaced from
      * elsewhere while blur is on, the new one gets the same treatment.
      */
-    private fun syncBlurredWallpaper() =
-        com.oneuiclone.home.ui.WallpaperBlur.apply(activity, prefs.homeBlurLevel, onlyIfReplaced = true) {
+    private var blurRestored = false
+    private fun syncBlurredWallpaper() {
+        if (blurRestored) return
+        blurRestored = true
+        // a wallpaper blur baked in by an earlier version is undone once (the sharp original is put back)
+        com.oneuiclone.home.ui.WallpaperBlur.apply(activity, 0f) {
             if (it == com.oneuiclone.home.ui.WallpaperBlur.Result.DONE) wallpaper.reload()
         }
+    }
 
     /**
      * One UI doesn't scroll the wallpaper with pages. Without offsets the system shows the left edge of its
@@ -2632,7 +2634,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
             onLaunch = { v, a -> closeSearch(toHome = false); launch(v, a) },
             configureIcon = { v, a -> setAppsIcon(v, a); v.appInfo = a; attachItem(v, null, a, true) { folderSiblings(v) } },
             sources = searchSources,
-            barGlass = searchBarGlass,
+            barOpacity = prefs.searchBarOpacity / 100f * prefs.appsBgOpacity / 100f,
             firstPage = { model?.firstPageApps() ?: emptySet() },
             onOpenIntent = { v, intent ->
                 closeSearch(toHome = false)
@@ -2864,7 +2866,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         shortcutLoader.destroy()
         backdropThread.quitSafely()
         wallpaper.destroy()
-        widgetGlass.destroy(); appsBarGlass.destroy(); searchBarGlass.destroy()
+        widgetGlass.destroy()
         repo?.destroy()
     }
 
