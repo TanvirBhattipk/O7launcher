@@ -85,6 +85,8 @@ class AppsSearch(
     private val onSwipeUp: () -> Unit,
     /** Tap outside / web search: the launcher decides where the bar goes back to ([close]). */
     private val onDismiss: () -> Unit,
+    /** The blurred wallpaper under the bar (its own blur setting); null: the pill's own glass. */
+    private val barGlass: WidgetGlass? = null,
     private val onClose: () -> Unit,
 ) : FrameLayout(context) {
 
@@ -194,7 +196,11 @@ class AppsSearch(
                 if (end > 0) {
                     keyboardComing = true
                     retargetKeyboard(end.toFloat(), animation.durationMillis.takeIf { it > 0 } ?: Easing.IME_DURATION)
-                } else retargetKeyboard(0f, 0L)
+                } else {
+                    retargetKeyboard(0f, 0L)
+                    // the keyboard was put away (swipe up from the gesture bar below it, its hide button): search goes too
+                    if (keyboardComing && SystemClock.uptimeMillis() - openedAt > 700L) post { if (isOpen) onDismiss() }
+                }
             }
             return bounds
         }
@@ -248,7 +254,7 @@ class AppsSearch(
         // a thin line under the row, as on the Apps screen: what comes under it later has its own place
         content.addView(View(context).apply { setBackgroundColor(0x59FFFFFF) },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, maxOf(1, dp.dpi(1f))).apply {
-                leftMargin = dp.searchBarSide; rightMargin = dp.searchBarSide; topMargin = dp.dpi(6f)
+                leftMargin = dp.searchBarSide; rightMargin = dp.searchBarSide; topMargin = dp.dpi(16f)
             })
         for (box in listOf(web, contactsBox)) {
             box.orientation = LinearLayout.VERTICAL
@@ -364,7 +370,7 @@ class AppsSearch(
         if (enterTarget is IconView) enterTarget = null      // went with the old grid
         results.rows = 1
         list.forEachIndexed { i, a ->
-            val v = SmallIcon().apply {
+            val v = IconView(context, dp).apply {
                 label = a.label; contentDescription = a.label
                 setOnClickListener { onLaunch(this, a) }
                 configureIcon(this, a)
@@ -628,11 +634,6 @@ class AppsSearch(
 
     private val slop = ViewConfiguration.get(context).scaledTouchSlop
     private var downX = 0f
-    /** An icon a little smaller than the Apps screen's. */
-    private inner class SmallIcon : IconView(context, dp) {
-        override val iconSize: Int get() = ((dp.iconSizePx * ICON_SCALE).roundToInt()).let { if (it % 2 == 1) it + 1 else it }
-    }
-
     private var downY = 0f
     private var swipedHome = false
 
@@ -689,7 +690,7 @@ class AppsSearch(
     private fun barTop() = dp.searchBarTop.toFloat()
 
     /** Results start just under the bar. */
-    private fun contentTop() = dp.searchBarTop + dp.searchBarHeight + dp.dpi(8f)
+    private fun contentTop() = dp.searchBarTop + dp.searchBarHeight + dp.dpi(18f)
 
     /**
      * The bar sits at its place at the top the whole time; [f] (0 hidden … 1 shown) slides it in from above while it
@@ -711,7 +712,7 @@ class AppsSearch(
         pillBg.cornerRadius = h / 2f
         pillBg.setColor(o.fill)
         pillBg.setStroke(dp.dpi(1f), o.stroke)
-        pillGlass = o.glass
+        pillGlass = if (o.glass != null) (barGlass ?: o.glass) else null
         val ink = o.ink ?: colors.hint
         glyph.color = ink
         field.setHintTextColor(ink)
@@ -758,6 +759,7 @@ class AppsSearch(
         origin = from
         field.setTextColor(if (from.ink != null) 0xFFFFFFFF.toInt() else colors.text)   // white on the glass
         isOpen = true
+        openedAt = SystemClock.uptimeMillis()
         visibility = VISIBLE
         kb = rememberedKeyboard(); kbTarget = kb
         f = 0f
@@ -792,6 +794,7 @@ class AppsSearch(
     private var keyboardDeadline = 0L
     /** Our keyboard has started coming up this session: stop asking (and don't undo the user hiding it). */
     private var keyboardComing = false
+    private var openedAt = 0L
     private val keyboardRetry: Runnable = object : Runnable {
         override fun run() {
             // not the insets: mid hand-over they can still say "visible" for the app's keyboard going down
@@ -872,8 +875,6 @@ class AppsSearch(
         private const val CLOSE_MS = 240L
         /** How far above its place the bar starts (and ends) while it fades. */
         private const val BAR_SLIDE_DP = 36f
-        /** The icons in the results, relative to the Apps screen's. */
-        private const val ICON_SCALE = 0.82f
         const val OPEN_RISE_DP = 48f
         private const val FADE_MS = 150L
         /** How long [askForKeyboard] keeps trying (the IME hand-over from an app has taken ~400 ms). */

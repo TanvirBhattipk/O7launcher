@@ -15,7 +15,7 @@ import kotlin.math.max
  * (window coordinates), blurred and graded with Samsung's blur curve. Widgets set to Blur draw the part of it behind
  * their background (WidgetManager.RoundedWidgetView.glass), so it lines up with the real wallpaper wherever they move.
  */
-class WidgetGlass {
+class WidgetGlass(var level: Float = LEVEL) {
     /** Blurred copy; null while it's built or when the wallpaper can't be read (widgets are then just translucent). */
     var bitmap: Bitmap? = null; private set
     /** Window pixels per bitmap pixel. */
@@ -46,7 +46,8 @@ class WidgetGlass {
                 val c = Canvas(small)
                 c.scale(small.width / w.toFloat(), small.height / h.toFloat())
                 if (!draw(c)) null else {
-                    val blurred = WallpaperBlur.boxBlur(small, LEVEL * w * 0.16f / WallpaperLayer.DOWNSCALE)
+                    val radius = level * w * 0.16f / WallpaperLayer.DOWNSCALE
+                    val blurred = if (radius < 1f) small else WallpaperBlur.boxBlur(small, radius)
                     Bitmap.createBitmap(blurred.width, blurred.height, Bitmap.Config.ARGB_8888).also {
                         Canvas(it).drawBitmap(blurred, 0f, 0f, Paint().apply { colorFilter = ColorMatrixColorFilter(WallpaperLayer.curveMatrix()) })
                     }
@@ -63,6 +64,13 @@ class WidgetGlass {
         if (gen != generation) return
         bitmap = b; scale = s
         views.forEach { it.invalidate() }
+    }
+
+    /** A new blur [l] (0 = none … 1 = the Apps screen's full blur): the copy is rebuilt from [wallpaper] when it changes. */
+    fun setLevel(l: Float, wallpaper: WallpaperLayer) {
+        if (kotlin.math.abs(l - level) < 0.001f) return
+        level = l
+        rebuild(wallpaper)
     }
 
     fun destroy() { io.shutdownNow() }
