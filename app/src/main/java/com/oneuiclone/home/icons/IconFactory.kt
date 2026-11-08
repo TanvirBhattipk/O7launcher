@@ -1242,6 +1242,8 @@ class IconFactory(private val context: Context) {
     }
 
     private fun applyEmboss(c: Canvas, size: Int) {
+        // No emboss in this build: icons are left flat, with no light rim along the top and no dark rim round the edge.
+        if (true) return
         // the bitmaps follow the squircle's edge; another shape gets the same rims drawn along its own
         if (!IconShape.isSquircle) { IconShape.drawEmboss(c, size); return }
         val dst = Rect(0, 0, size, size)
