@@ -117,6 +117,12 @@ class WallpaperStyleActivity : OneUiPage() {
             strength.isEnabled = prefs.homeBlur
         }
         card {
+            header("Apps screen blur")
+            slider("App drawer background", prefs.appsBgBlur, 0, 100) { prefs.appsBgBlur = it }
+            slider("App drawer search bar", prefs.appsBarBlur, 0, 100) { prefs.appsBarBlur = it }
+            slider("Search bar", prefs.searchBarBlur, 0, 100) { prefs.searchBarBlur = it }
+        }
+        card {
             row("Colour palette", "Choose a palette based on colours from your wallpaper.", sub,
                 Swatch(this@WallpaperStyleActivity).apply { layoutParams = LinearLayout.LayoutParams(dp(34f), dp(56f)).apply { marginStart = dp(16f) } },
                 { openColours() }, titleWeight = 600)
