@@ -115,7 +115,12 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
     val scrim = ScrimView(activity)
     val wallpaper = com.oneuiclone.home.ui.WallpaperLayer(activity).apply { drivesLive = true }
     /** Blurred wallpaper behind widgets set to Style › Blur. */
-    private val widgetGlass = com.oneuiclone.home.ui.WidgetGlass().also { g -> wallpaper.onLoaded = { g.rebuild(wallpaper); syncBlurredWallpaper() } }
+    /** Blurred wallpaper under the Apps screen's search bar and under the search bar, each with its own blur (Wallpaper and style). */
+    private val appsBarGlass = com.oneuiclone.home.ui.WidgetGlass(prefs.appsBarBlur / 100f)
+    private val searchBarGlass = com.oneuiclone.home.ui.WidgetGlass(prefs.searchBarBlur / 100f)
+    private val widgetGlass = com.oneuiclone.home.ui.WidgetGlass().also { g ->
+        wallpaper.onLoaded = { g.rebuild(wallpaper); appsBarGlass.rebuild(wallpaper); searchBarGlass.rebuild(wallpaper); syncBlurredWallpaper() }
+    }
     val background = BackgroundController(activity, scrim, wallpaper)
     val homeLayer = FrameLayout(activity)
     val appsLayer = FrameLayout(activity)
@@ -323,6 +328,11 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
 
     private fun setupProfile(w: Int, h: Int) {
         prefsSnapshot = snapshot()
+        // the three blurs of Wallpaper and style › Apps screen blur
+        background.appsBlurScale = prefs.appsBgBlur / 100f
+        background.set(background.current, background.currentProgress)
+        appsBarGlass.setLevel(prefs.appsBarBlur / 100f, wallpaper)
+        searchBarGlass.setLevel(prefs.searchBarBlur / 100f, wallpaper)
         val newDp = DeviceProfile(w, h, activity.resources.displayMetrics.density, insets,
             homeCols = prefs.homeCols, homeRows = prefs.homeRows, appsCols = prefs.appsCols, appsRows = prefs.appsRows,
             iconScale = prefs.iconScale / 100f, labelScale = prefs.labelScale / 100f)
@@ -401,7 +411,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         })
         workspace.listener = object : PagedView.Listener {
             override fun onPageChanged(page: Int) = indicator.setPage(page)
-            override fun onScrollProgress(position: Float) { edit.onWorkspaceScroll(); onPagesScrolling() }
+            override fun onScrollProgress(position: Float) { edit.onWorkspaceScroll(); onPagesScrolling(position) }
         }
         edit.reset()
         workspace.onEmptyLongPress = { _, _ ->
@@ -453,7 +463,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         // full width, drawn like the Home screen's Search button (same glass, tint and thin border)
         searchPill = SearchPill(activity, dp, activity.getString(R.string.search_hint))
         searchPill.glassTransparency = homeSearch.glassTransparency
-        searchPill.glass = widgetGlass
+        searchPill.glass = appsBarGlass
         searchPill.setOnClickListener { openSearch() }
         val barLeft = (dp.widthPx - dp.searchBarWidth) / 2
         appsLayer.addView(searchPill, FrameLayout.LayoutParams(dp.searchBarWidth, dp.searchBarHeight).apply {
@@ -463,7 +473,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         // the menu (⋮) sits inside the bar, at its right end
         moreButton = SearchPill(activity, dp, "", menuIcon = true).apply {
             glassTransparency = homeSearch.glassTransparency
-            glass = widgetGlass
+            glass = appsBarGlass
             setOnClickListener { showAppsMenu(this) }
         }
         appsLayer.addView(moreButton, FrameLayout.LayoutParams(dp.searchBarHeight, dp.searchBarHeight).apply {
@@ -496,27 +506,36 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
 
     // ---- page dots: only while the pages scroll, in the place of the Search pill ----
     private var dotsAnim: android.animation.ValueAnimator? = null
-    private val hideDots = Runnable { if (workspace.isDragging) postHideDots() else setDotsShown(false) }
+    /** 0 = the Search pill shows, 1 = the dots show. */
+    private var dotsLevel = 0f
+    private val hideDots = Runnable { if (workspace.isDragging) postHideDots() else fadeDots(0f) }
     private fun postHideDots() { root.removeCallbacks(hideDots); root.postDelayed(hideDots, 700L) }
 
-    /** Home's pages are moving: the dots take the Search pill's place until they settle. */
-    private fun onPagesScrolling() {
+    private fun applyDots(level: Float) {
+        dotsLevel = level
+        indicator.dotsShown = level
+        if (!edit.isActive) homeSearch.alpha = 1f - level
+    }
+
+    /**
+     * Home's pages are moving: the pill fades out and the dots fade in with the first pixels of the swipe (fully
+     * changed over by a tenth of a page), and stay until the pages have been still for a moment.
+     */
+    private fun onPagesScrolling(position: Float) {
         if (!::indicator.isInitialized || indicator.count <= 1 || edit.isActive) return
-        setDotsShown(true)
+        dotsAnim?.cancel()
+        val fromPage = kotlin.math.abs(position - Math.round(position))
+        applyDots(maxOf(dotsLevel, minOf(1f, fromPage / 0.1f)))
         postHideDots()
     }
 
-    private fun setDotsShown(shown: Boolean) {
-        val end = if (shown) 1f else 0f
-        if (indicator.dotsShown == end && dotsAnim?.isRunning != true) return
+    /** The pages have settled: the dots fade out and the pill fades back in. */
+    private fun fadeDots(end: Float) {
+        if (dotsLevel == end) return
         dotsAnim?.cancel()
-        dotsAnim = android.animation.ValueAnimator.ofFloat(indicator.dotsShown, end).apply {
-            duration = 180
-            addUpdateListener {
-                val v = it.animatedValue as Float
-                indicator.dotsShown = v
-                if (!edit.isActive) homeSearch.alpha = 1f - v
-            }
+        dotsAnim = android.animation.ValueAnimator.ofFloat(dotsLevel, end).apply {
+            duration = 220
+            addUpdateListener { applyDots(it.animatedValue as Float) }
             start()
         }
     }
@@ -2613,6 +2632,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
             onLaunch = { v, a -> closeSearch(toHome = false); launch(v, a) },
             configureIcon = { v, a -> setAppsIcon(v, a); v.appInfo = a; attachItem(v, null, a, true) { folderSiblings(v) } },
             sources = searchSources,
+            barGlass = searchBarGlass,
             firstPage = { model?.firstPageApps() ?: emptySet() },
             onOpenIntent = { v, intent ->
                 closeSearch(toHome = false)
@@ -2623,8 +2643,8 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
             },
             canSwipeHome = { !drag.isDragging && popup == null && dragArmed == null },
             onSwipeHome = { closeSearch(toHome = true) },
-            // with Swipe down for search a swipe up undoes it (the Apps screen is a swipe up from Home)
-            onSwipeUp = { if (prefs.swipeDownSearch) closeSearch(lift = true) else searchToApps() },
+            // a swipe up closes the search again, whichever way it was opened (it never goes on to the Apps screen)
+            onSwipeUp = { closeSearch(lift = true) },
             onDismiss = { closeSearch() },
         ) {
             // the bar has faded out: the pills are back (the Apps screen's pill fades back in as the bar leaves)
@@ -2640,7 +2660,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         searchFromHome = fromHome
         if (fromHome) {
             searchPill.animate().cancel(); searchPill.alpha = 0f
-            homeSearch.visibility = View.INVISIBLE
+            // Home's Search pill fades out with Home as the Apps screen's background fades in
             appsScroll.animate().cancel(); appsScroll.alpha = 0f; appsScroll.translationY = 0f
             moreButton.animate().cancel(); moreButton.alpha = 0f; moreButton.translationY = 0f
             state.goTo(StateController.State.APPS, com.oneuiclone.home.ui.AppsSearch.MORPH_MS)
@@ -2844,7 +2864,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         shortcutLoader.destroy()
         backdropThread.quitSafely()
         wallpaper.destroy()
-        widgetGlass.destroy()
+        widgetGlass.destroy(); appsBarGlass.destroy(); searchBarGlass.destroy()
         repo?.destroy()
     }
 
