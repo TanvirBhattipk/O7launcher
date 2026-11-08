@@ -31,7 +31,7 @@ class DeviceProfile(
     val pageBottomPadding = (heightPx * 0.007f).roundToInt() + insets.bottom
     val indicatorAreaHeight = (heightPx * 0.041f).roundToInt()     // indicator_area_height_ratio
     val hotseatHeight = (heightPx * 0.124f).roundToInt()           // hotseat_bar_height_ratio
-    val pageSidePadding = (widthPx * 0.038f).roundToInt()          // page_left/right_padding_width_ratio
+    val pageSidePadding = (widthPx * 0.029f).roundToInt()          // wider icon grid (stock: page_left/right_padding_width_ratio 0.038)
 
     val workspaceGrid: Rect = Rect(
         pageSidePadding,
@@ -44,9 +44,9 @@ class DeviceProfile(
 
     val indicatorRect = Rect(0, workspaceGrid.bottom, widthPx, workspaceGrid.bottom + indicatorAreaHeight)
     val hotseatRect = Rect(
-        (widthPx * 0.036f).roundToInt(),                             // hotseat_page_side_padding_width_ratio
+        pageSidePadding,                                             // the dock's icons sit in the same columns as Home's (stock: 0.036 of the width)
         indicatorRect.bottom,
-        widthPx - (widthPx * 0.036f).roundToInt(),
+        widthPx - pageSidePadding,
         indicatorRect.bottom + hotseatHeight,
     )
 
@@ -60,15 +60,15 @@ class DeviceProfile(
     val indicatorDotPx = dp(6f)
 
     // ---- apps screen ----
-    val appsSidePadding = (widthPx * 0.038f).roundToInt()          // apps_page_side_padding_width_ratio
+    val appsSidePadding = (widthPx * 0.029f).roundToInt()          // same grid width as Home (stock: apps_page_side_padding_width_ratio 0.038)
     /** Side margin of the search bar: its ends line up with the outer edges of the first and last icon columns. */
     val searchBarSide = (appsSidePadding + (((widthPx - 2 * appsSidePadding) / appsCols - iconSizePx) / 2f)).roundToInt()
     val searchBarWidth = widthPx - 2 * searchBarSide
     val searchBarHeight = dpi(52f)                                  // search_bar_wrapper_height
     val searchBarRadius = dp(32f)                                   // search_bar_bg_radius
     val searchBarBottomMargin = (heightPx * 0.022f).roundToInt() + insets.bottom
-    /** The Apps search bar now sits at the top, just under the status bar. */
-    val searchBarTop = insets.top + (heightPx * 0.012f).roundToInt()
+    /** The Apps search bar sits at the top, a little way under the status bar. */
+    val searchBarTop = insets.top + (heightPx * 0.028f).roundToInt()
     /** Where the apps list starts: just under the search bar. */
     val appsListTop = searchBarTop + searchBarHeight + dpi(8f)
     val appsIndicatorHeight = (heightPx * 0.044f).roundToInt()     // apps_page_indicator_height_ratio
