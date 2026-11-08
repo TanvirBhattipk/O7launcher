@@ -1183,6 +1183,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         if (app != null && prefs.appBubbles && AppBubbles.supports(app)) {
             opts += com.oneuiclone.home.ui.QuickOption("Bubble", com.oneuiclone.home.ui.QuickOption.BUBBLE) { bubble(v, app) }
         }
+        if (app != null) opts += com.oneuiclone.home.ui.QuickOption("Rename", com.oneuiclone.home.ui.QuickOption.RENAME) { renameApp(app) }
         if (app != null && (app.activityInfo.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0) {
             opts += com.oneuiclone.home.ui.QuickOption("Uninstall", com.oneuiclone.home.ui.QuickOption.UNINSTALL) {
                 activity.startActivity(Intent(Intent.ACTION_DELETE, android.net.Uri.fromParts("package", app.key.component.packageName, null)))
@@ -1251,6 +1252,37 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         if (spot == null) { Toast.makeText(activity, "Not enough space to enlarge this folder.", Toast.LENGTH_SHORT).show(); return }
         f.x = spot.first; f.y = spot.second; f.large = true
         m.save(); bindWorkspace()
+    }
+
+    /** App long-press › Rename: the name shows everywhere (Home, folders, Apps screen, search); Reset puts the app's own back. */
+    private fun renameApp(app: AppInfo) {
+        val r = repo ?: return
+        val field = android.widget.EditText(activity).apply {
+            setText(app.label)
+            hint = app.systemLabel
+            setSelectAllOnFocus(true)
+            isSingleLine = true
+        }
+        val box = FrameLayout(activity).apply {
+            setPadding(dp.dpi(24f), dp.dpi(8f), dp.dpi(24f), 0)
+            addView(field)
+        }
+        val builder = android.app.AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle("Rename app")
+            .setView(box)
+            .setPositiveButton("Save") { _, _ ->
+                val name = field.text.toString().trim()
+                r.names.set(app.key, if (name.isEmpty() || name == app.systemLabel) null else name)
+                r.reload()
+            }
+            .setNegativeButton("Cancel", null)
+        if (r.names.get(app.key) != null) builder.setNeutralButton("Reset") { _, _ -> r.names.set(app.key, null); r.reload() }
+        val dialog = builder.create()
+        dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        field.imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+        field.setOnEditorActionListener { _, _, _ -> dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)?.performClick(); true }
+        dialog.show()
+        field.requestFocus()
     }
 
     /** Folder long-press › Rename (the pop-up folder has no name field to edit). */
@@ -2031,7 +2063,6 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
     fun onResume() {
         searchSources.refresh { refreshSuggested() }   // e.g. back from granting usage access
         AppUpdate.onResumed(activity)
-        AppUpdate.checkIfDue()
         // back before the app covered Home (a translucent app, or one that closed at once)
         dropLaunchCard(fade = true)
         endEffect(animate = true)

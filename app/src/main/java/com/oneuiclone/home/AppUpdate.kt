@@ -81,43 +81,16 @@ object AppUpdate {
         app = context.applicationContext
         prefs = app.getSharedPreferences("update", Context.MODE_PRIVATE)
         thisVersion = app.packageManager.getPackageInfo(app.packageName, 0).versionName ?: "0"
-        // Shown straight away from the last check; the next check corrects it.
-        available = savedRelease()?.takeIf { isNewer(it.version) }
-        // An installed update leaves its APK behind; keep only the one still to install.
-        val keep = available?.let { apkFile(it).name }
-        dir().listFiles()?.forEach { if (it.name != keep) it.delete() }
+        // No update checks in this build: forget any release saved by an earlier check, and its downloaded APK.
+        available = null
+        prefs.edit().remove(KEY_RELEASE).apply()
+        dir().listFiles()?.forEach { it.delete() }
     }
 
     private fun changed() = onChanged?.invoke()
 
-    /** Called whenever Home comes to the front; looks GitHub up at most every 6 hours, and on a new version's first start. */
-    fun checkIfDue() {
-        val newInstall = prefs.getString(KEY_CHECKED_BY, null) != thisVersion
-        if (checking || (!newInstall && System.currentTimeMillis() < prefs.getLong(KEY_NEXT_CHECK, 0L))) return
-        checking = true
-        io.execute {
-            val result = runCatching { fetchLatest() }
-            main.post {
-                checking = false
-                val now = System.currentTimeMillis()
-                result.onFailure {
-                    Log.w(TAG, "update check failed (${it.message}); trying again in an hour")
-                    prefs.edit().putLong(KEY_NEXT_CHECK, now + RETRY_AFTER_MS).putString(KEY_CHECKED_BY, thisVersion).apply()
-                    return@post
-                }
-                val latest = result.getOrNull()
-                prefs.edit().putLong(KEY_NEXT_CHECK, now + CHECK_EVERY_MS).putString(KEY_CHECKED_BY, thisVersion)
-                    .apply { if (latest != null) putString(KEY_RELEASE, latest.toJson()) else remove(KEY_RELEASE) }
-                    .apply()
-                val newer = latest?.takeIf { isNewer(it.version) }
-                Log.i(TAG, "update check: latest ${latest?.version ?: "none"}, this $thisVersion" +
-                    if (newer != null) " → update available" else "")
-                if (phase == Phase.Downloading || phase == Phase.Installing) return@post
-                if (newer != available) { available = newer; phase = Phase.Ready; changed() }
-                if (newer != null && !metered()) apkFor(newer) {}
-            }
-        }
-    }
+    /** Update checks are switched off in this build: nothing looks GitHub up, and no Update pill is ever shown. */
+    fun checkIfDue() {}
 
     /** The Update pill's tap. */
     fun install(context: Context) {
