@@ -8,8 +8,8 @@ import com.oneuiclone.home.device.DeviceProfile
 
 /**
  * The thin line under the Apps screen's first row of suggested apps (Pixel launcher), separating it from All apps.
- * It spans the row's cell, so it sits at the cell's bottom edge, halfway between the suggested icons' labels and
- * the first row of all apps, and like the search bar it ends where the outer icons do.
+ * The view is the suggested row's cell; the line is drawn just below it, in the middle of the gap the list leaves
+ * there ([GAP_DP] tall, set in Launcher.bindApps), and like the search bar it ends where the outer icons do.
  */
 class SuggestedRowBackground(context: Context, private val dp: DeviceProfile) : View(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -20,7 +20,11 @@ class SuggestedRowBackground(context: Context, private val dp: DeviceProfile) : 
 
     override fun onDraw(canvas: Canvas) {
         val side = (dp.searchBarSide - dp.appsSidePadding).coerceAtLeast(0).toFloat()
-        val y = height - paint.strokeWidth / 2f
+        val y = height + dp.dp(GAP_DP) / 2f                     // outside the cell: the grid doesn't clip its children
         canvas.drawLine(side, y, width - side, y, paint)
+    }
+
+    companion object {
+        const val GAP_DP = 40f
     }
 }

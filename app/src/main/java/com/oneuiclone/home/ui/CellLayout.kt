@@ -13,6 +13,14 @@ class CellLayout(context: Context, var cols: Int, var rows: Int) : ViewGroup(con
     var cellW = 0; private set
     var cellH = 0; private set
 
+    /**
+     * Extra space of [gapPx] between row [gapAfterRow] and the rows below it (-1: none). The Apps screen leaves one
+     * after its suggested apps. It is part of the height this layout is given, not of the rows.
+     */
+    var gapAfterRow = -1
+    var gapPx = 0
+    private fun gapFor(y: Int) = if (gapAfterRow >= 0 && y > gapAfterRow) gapPx else 0
+
     init {
         clipChildren = false
         clipToPadding = false
@@ -38,14 +46,14 @@ class CellLayout(context: Context, var cols: Int, var rows: Int) : ViewGroup(con
     }
 
     fun cellLeft(x: Int) = paddingLeft + x * cellW
-    fun cellTop(y: Int) = paddingTop + y * cellH
+    fun cellTop(y: Int) = paddingTop + y * cellH + gapFor(y)
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val w = MeasureSpec.getSize(widthMeasureSpec)
         val h = if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.UNSPECIFIED && (layoutParams?.height ?: 0) > 0)
             layoutParams.height else MeasureSpec.getSize(heightMeasureSpec)
         cellW = (w - paddingLeft - paddingRight) / cols
-        cellH = (h - paddingTop - paddingBottom) / rows
+        cellH = (h - paddingTop - paddingBottom - (if (gapAfterRow >= 0) gapPx else 0)) / rows
         for (i in 0 until childCount) {
             val c = getChildAt(i)
             val lp = c.layoutParams as LayoutParams
