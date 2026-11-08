@@ -389,6 +389,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
             topMargin = dp.indicatorRect.top + (dp.indicatorRect.height() - updatePill.pillHeight) / 2
         })
         indicator.leadingGapPx = dp.dp(6f)
+        indicator.forceVisible = { edit.isActive }              // page edit always shows the dots
         indicator.leadingPx = homeSearch.pillWidth.toFloat()
         indicator.onLeadingMoved = { x -> homeSearch.translationX = x; placeUpdatePill() }
         AppUpdate.onChanged = { syncUpdatePill() }
@@ -400,7 +401,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         })
         workspace.listener = object : PagedView.Listener {
             override fun onPageChanged(page: Int) = indicator.setPage(page)
-            override fun onScrollProgress(position: Float) = edit.onWorkspaceScroll()
+            override fun onScrollProgress(position: Float) { edit.onWorkspaceScroll(); onPagesScrolling() }
         }
         edit.reset()
         workspace.onEmptyLongPress = { _, _ ->
@@ -422,12 +423,13 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         }
 
         val listTop = dp.appsListTop
-        appsScroll = android.widget.ScrollView(activity).apply {
+        appsScroll = com.oneuiclone.home.ui.DrawerScrollView(activity, dp).apply {
+            onPullToClose = { if (state.state == StateController.State.APPS && search == null) state.goTo(StateController.State.HOME) }
             isVerticalScrollBarEnabled = false
             isVerticalFadingEdgeEnabled = true
             setFadingEdgeLength(dp.dpi(24f))
             clipToPadding = false
-            overScrollMode = View.OVER_SCROLL_NEVER
+            overScrollMode = View.OVER_SCROLL_ALWAYS               // Android's stretch overscroll at both ends
             // no padding: fading edges are drawn inside it, so the gap above row 1 lives in the grid instead
             // appsLayer doesn't clip its children (ripple, transitions), so clip the list to its own box:
             // otherwise rows draw behind the search pill and past the fading edge
@@ -491,6 +493,33 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
     }
 
     private var knownApps: Set<com.oneuiclone.home.model.AppKey> = emptySet()
+
+    // ---- page dots: only while the pages scroll, in the place of the Search pill ----
+    private var dotsAnim: android.animation.ValueAnimator? = null
+    private val hideDots = Runnable { if (workspace.isDragging) postHideDots() else setDotsShown(false) }
+    private fun postHideDots() { root.removeCallbacks(hideDots); root.postDelayed(hideDots, 700L) }
+
+    /** Home's pages are moving: the dots take the Search pill's place until they settle. */
+    private fun onPagesScrolling() {
+        if (!::indicator.isInitialized || indicator.count <= 1 || edit.isActive) return
+        setDotsShown(true)
+        postHideDots()
+    }
+
+    private fun setDotsShown(shown: Boolean) {
+        val end = if (shown) 1f else 0f
+        if (indicator.dotsShown == end && dotsAnim?.isRunning != true) return
+        dotsAnim?.cancel()
+        dotsAnim = android.animation.ValueAnimator.ofFloat(indicator.dotsShown, end).apply {
+            duration = 180
+            addUpdateListener {
+                val v = it.animatedValue as Float
+                indicator.dotsShown = v
+                if (!edit.isActive) homeSearch.alpha = 1f - v
+            }
+            start()
+        }
+    }
 
     /** Move items that no longer fit after a grid change into free cells (One UI keeps everything). */
     private fun reflowGrid(m: WorkspaceModel) {
@@ -2497,10 +2526,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
                     if (state.state == StateController.State.HOME && dy > 0 && prefs.swipeDownNotifications) {
                         expandNotifications(); consumed = true; return true
                     }
-                    // pulling down returns Home only from the top of the list; otherwise the list scrolls
-                    if (state.state == StateController.State.APPS && dy > 0 && !appsScroll.canScrollVertically(-1)) {
-                        startTracking(false); return true
-                    }
+                    // (pulling down at the top of the Apps list stretches it; far enough, it closes: DrawerScrollView)
                 }
             }
             MotionEvent.ACTION_POINTER_DOWN -> if (ev.pointerCount == 2) pinchStart = spread(ev)
@@ -2601,8 +2627,8 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
             onSwipeUp = { if (prefs.swipeDownSearch) closeSearch(lift = true) else searchToApps() },
             onDismiss = { closeSearch() },
         ) {
-            // the bar has landed exactly on its pill: swap them in the same frame
-            searchPill.visibility = View.VISIBLE
+            // the bar has faded out: the pills are back (the Apps screen's pill fades back in as the bar leaves)
+            searchPill.animate().cancel(); searchPill.alpha = 1f
             homeSearch.visibility = View.VISIBLE
             removeSearch(s)
             if (search === s) search = null
@@ -2612,13 +2638,15 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         root.addView(s, root.indexOfChild(overlay), FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         search = s
         searchFromHome = fromHome
-        searchPill.visibility = View.INVISIBLE
         if (fromHome) {
+            searchPill.animate().cancel(); searchPill.alpha = 0f
             homeSearch.visibility = View.INVISIBLE
             appsScroll.animate().cancel(); appsScroll.alpha = 0f; appsScroll.translationY = 0f
             moreButton.animate().cancel(); moreButton.alpha = 0f; moreButton.translationY = 0f
             state.goTo(StateController.State.APPS, com.oneuiclone.home.ui.AppsSearch.MORPH_MS)
         } else {
+            // the Apps screen's pill fades out as the bar slides in over its place
+            searchPill.animate().alpha(0f).setDuration(160).start()
             moreButton.animate().alpha(0f).setDuration(150).start()
             appsScroll.animate().alpha(0f).setDuration(200).start()
         }
@@ -2649,12 +2677,14 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         val s = search ?: return
         if (!s.isOpen) return
         if (toHome) {
+            homeSearch.visibility = View.VISIBLE
             s.close(homeSearchOrigin(), lift)
             if (state.state == StateController.State.APPS || state.isTransitioning)
                 state.goTo(StateController.State.HOME, com.oneuiclone.home.ui.AppsSearch.MORPH_MS)
         } else {
             appsScroll.animate().alpha(1f).setDuration(200).start()
             moreButton.animate().alpha(1f).setDuration(150).start()
+            searchPill.animate().alpha(1f).setDuration(240).start()
             s.close(drawerSearchOrigin(), lift)
         }
     }
@@ -2668,6 +2698,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         if (!s.isOpen) return
         searchFromHome = false
         if (state.state != StateController.State.APPS) state.goTo(StateController.State.APPS, com.oneuiclone.home.ui.AppsSearch.MORPH_MS)
+        searchPill.animate().alpha(1f).setDuration(240).start()
         for (v in listOf(appsScroll, moreButton)) {
             v.animate().cancel()
             v.alpha = 0f
