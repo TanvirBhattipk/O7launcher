@@ -128,6 +128,12 @@ class SearchSources(
      * Most likely to be wanted first: contacts opened from search before, starred ones, then people from recent
      * conversations (messaging apps' conversation shortcuts), then whoever was contacted or edited most recently.
      */
+    /** The starred contacts (Favorites), by name: for search's favorites. Reads the contacts: call it off the main thread. */
+    fun favoriteContacts(max: Int): List<Contact> =
+        if (!contactsAllowed) emptyList()
+        else read(ContactsContract.Contacts.CONTENT_URI, "${ContactsContract.Contacts.STARRED}=1",
+            "${ContactsContract.Contacts.DISPLAY_NAME_PRIMARY} COLLATE LOCALIZED ASC", max)
+
     private fun suggestedContacts(max: Int): List<Contact> {
         val out = LinkedHashMap<Long, Contact>()
         fun add(list: List<Contact>) { for (c in list) if (out.size < max) out.putIfAbsent(c.id, c) }

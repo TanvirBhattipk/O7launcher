@@ -116,6 +116,12 @@ class AppsSearch(
     private val results = CellLayout(context, 4, 2)
     private val contactsBox = LinearLayout(context)
     private val web = LinearLayout(context)
+    /** The calculator's answer, under the first line ("10x10 = 100"); hidden unless the query is a calculation. */
+    private val calcBox = TextView(context)
+    private var calcResult: String? = null
+    /** The thin line under the favorite contacts. */
+    private val line2 = View(context).apply { setBackgroundColor(0x59FFFFFF) }
+    private var favorites: List<SearchSources.Contact> = emptyList()
     private val content = LinearLayout(context)
     /** The snapshot this search opened with. */
     private var scores: Map<AppKey, Double> = emptyMap()
@@ -254,19 +260,40 @@ class AppsSearch(
         content.clipChildren = false
         results.setPadding(dp.appsSidePadding, 0, dp.appsSidePadding, 0)
         content.addView(results, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0))
-        // a thin line under the row, as on the Apps screen: what comes under it later has its own place
-        content.addView(View(context).apply { setBackgroundColor(0x59FFFFFF) },
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, maxOf(1, dp.dpi(1f))).apply {
-                leftMargin = dp.searchBarSide; rightMargin = dp.searchBarSide; topMargin = dp.dpi(16f)
-            })
-        for (box in listOf(web, contactsBox)) {
-            box.orientation = LinearLayout.VERTICAL
-            box.clipChildren = false
-            content.addView(box, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                leftMargin = dp.dpi(14f); rightMargin = dp.dpi(14f); topMargin = dp.dpi(SECTION_GAP_DP)
-            })
-            box.visibility = GONE
+        // a thin line under the row, as on the Apps screen: what comes under it has its own place
+        fun dividerParams() = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, maxOf(1, dp.dpi(1f))).apply {
+            leftMargin = dp.searchBarSide; rightMargin = dp.searchBarSide; topMargin = dp.dpi(16f)
         }
+        content.addView(View(context).apply { setBackgroundColor(0x59FFFFFF) }, dividerParams())
+        // the calculator's answer, in a rounded panel
+        calcBox.apply {
+            visibility = GONE
+            setPadding(dp.dpi(20f), dp.dpi(16f), dp.dpi(20f), dp.dpi(16f))
+            gravity = Gravity.CENTER_VERTICAL
+            background = GradientDrawable().apply { cornerRadius = dp.dp(22f); setColor(0x26FFFFFF) }
+            isClickable = true
+            setOnClickListener {
+                val r = calcResult ?: return@setOnClickListener
+                context.getSystemService(android.content.ClipboardManager::class.java)
+                    .setPrimaryClip(android.content.ClipData.newPlainText("result", r))
+                android.widget.Toast.makeText(context, "Copied", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+        content.addView(calcBox, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            leftMargin = dp.searchBarSide; rightMargin = dp.searchBarSide; topMargin = dp.dpi(18f)
+        })
+        // favorite contacts, two by two, the same distance under the line as the apps are under the bar
+        contactsBox.orientation = LinearLayout.VERTICAL
+        contactsBox.clipChildren = false
+        contactsBox.visibility = GONE
+        content.addView(contactsBox, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            leftMargin = dp.searchBarSide; rightMargin = dp.searchBarSide; topMargin = dp.dpi(18f)
+        })
+        line2.visibility = GONE
+        content.addView(line2, dividerParams())
+        web.orientation = LinearLayout.VERTICAL
+        web.visibility = GONE
+        content.addView(web, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         addView(content, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT).apply { topMargin = contentTop() })
         addView(pill, LayoutParams(dp.searchBarWidth, dp.searchBarHeight))
 
@@ -303,6 +330,7 @@ class AppsSearch(
 
     private fun filter(q: String) {
         if (!isOpen) return                       // closing: the query is cleared into the hint, results stay put
+        calcResult = Calculator.evaluate(q)
         val query = normalize(q.trim())
         if (query.isEmpty()) {
             pendingFetch?.let { main.removeCallbacks(it) }
@@ -350,10 +378,39 @@ class AppsSearch(
      * stretched over what's left.
      */
     private fun render() {
-        showApps(appsList)
-        showContacts(emptyList(), false, dp.dpi(CHIP_DP))      // kept empty: contacts are no longer searched
-        showWeb(emptyList())                                    // and neither is the web
+        // a calculation takes the apps' place (their row is hidden); the favorites stay under it
+        showApps(if (calcResult != null) emptyList() else appsList)
+        showCalc()
+        showContacts(favorites, !sources.contactsAllowed, dp.dpi(CHIP_DP))
+        line2.visibility = if (contactsBox.visibility == VISIBLE) VISIBLE else GONE
+        showWeb(emptyList())                                    // no web results
         updateEnterTarget()
+    }
+
+    /** "10x10 = 100": what was typed, then the answer in bold. */
+    private fun showCalc() {
+        val r = calcResult
+        if (r == null) { calcBox.visibility = GONE; return }
+        val typed = field.text.toString().trim()
+        val b = android.text.SpannableStringBuilder()
+        b.append("$typed = ")
+        b.setSpan(android.text.style.ForegroundColorSpan(colors.hint), 0, b.length, 0)
+        b.setSpan(android.text.style.AbsoluteSizeSpan(16, true), 0, b.length, 0)
+        val start = b.length
+        b.append(r)
+        b.setSpan(android.text.style.ForegroundColorSpan(colors.text), start, b.length, 0)
+        b.setSpan(android.text.style.AbsoluteSizeSpan(24, true), start, b.length, 0)
+        b.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), start, b.length, 0)
+        calcBox.text = b
+        calcBox.visibility = VISIBLE
+    }
+
+    private fun loadFavorites() {
+        if (!sources.contactsAllowed) { favorites = emptyList(); render(); return }
+        Thread {
+            val list = sources.favoriteContacts(4)
+            post { if (isOpen) { favorites = list; render() } }
+        }.start()
     }
 
     /** Typing: [v] is new, so it fades in (opening, the whole results area rises in instead). */
@@ -478,7 +535,7 @@ class AppsSearch(
         val chips = if (invite) {
             listOf(chip(ContactAvatar(context, null, "", 0xFF3E91FF.toInt()), "Allow access to show contacts", false) { onRequestContacts() })
         } else list.map { c ->
-            chip(ContactAvatar(context, c.photo, c.name, avatarColor(c.name)), c.name, true) {
+            chip(ContactAvatar(context, c.photo, c.name, avatarColor(c.name)), c.name, false) {
                 sources.contactOpened(c)
                 onOpenIntent(it, Intent(Intent.ACTION_VIEW, c.uri))     // the contact's own page
             }
@@ -765,6 +822,7 @@ class AppsSearch(
         field.setTextColor(if (from.ink != null) 0xFFFFFFFF.toInt() else colors.text)   // white on the glass
         isOpen = true
         openedAt = SystemClock.uptimeMillis()
+        loadFavorites()
         visibility = VISIBLE
         kb = rememberedKeyboard(); kbTarget = kb
         f = 0f

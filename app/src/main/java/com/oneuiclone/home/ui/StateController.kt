@@ -12,10 +12,11 @@ import kotlin.math.abs
 import kotlin.math.max
 
 /**
- * HOME ⇄ APPS, the way Pixel's drawer opens (with no sheet behind it): as the swipe goes up the wallpaper blurs and
- * Home's icons blur and fade away first, while the drawer's own content (the search bar, the suggested apps, the list)
- * rises from the bottom edge, fading in as it leaves it. It follows the finger, and the rest of the way is finished
- * from wherever the finger let go. Back and swipe down run it the other way. Search asks for a [goTo] with a
+ * HOME ⇄ APPS, the way Pixel's drawer opens (with no sheet behind it): the wallpaper blurs and Home's icons blur and
+ * fade away first, while the drawer's own content (the search bar, the suggested apps, the list) rises from the
+ * bottom edge, fading in as it leaves it. The drawer follows the finger exactly (one pixel for one pixel, never
+ * ahead of it); when the finger lets go the rest of the way is finished from where it is. Back and swipe down run it
+ * the other way. Search asks for a [goTo] with a
  * duration instead: that only crossfades Home into the Apps screen's background (and back), so the search page can
  * fade in over it.
  */
@@ -57,10 +58,14 @@ class StateController(
         prepare()
     }
 
-    /** The finger moves: the screens follow. */
-    fun drag(progress: Float) {
+    /**
+     * The finger moves: [progress] (0…1 of the swipe's distance) is what decides on release, while the screens follow
+     * the finger itself, [distancePx] from where it went down, exactly.
+     */
+    fun drag(progress: Float, distancePx: Float) {
         f = progress.coerceIn(0f, 1f)
-        frame(if (toApps) f else 1f - f)
+        val shown = (distancePx / max(1f, apps.height.toFloat())).coerceIn(0f, 1f)
+        frame(if (toApps) shown else 1f - shown)
     }
 
     /**
@@ -185,5 +190,5 @@ class StateController(
         v.visibility = if (shown) View.VISIBLE else View.INVISIBLE
     }
 
-    private companion object { const val OPEN_MS = 480L }
+    private companion object { const val OPEN_MS = 420L }
 }

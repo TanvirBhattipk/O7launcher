@@ -8,10 +8,10 @@ import android.widget.ScrollView
 import com.oneuiclone.home.device.DeviceProfile
 
 /**
- * The Apps screen's list. At either end it gives way with Android's own stretch overscroll (EdgeEffect.TYPE_STRETCH,
- * on Android 12 and up: the whole list stretches under the finger and relaxes when it lets go; a fling that hits an
- * end stretches it too). Pulling down past the top far enough, or flicking down there, closes the Apps screen
- * ([onPullToClose]) as the swipe down used to.
+ * The Apps screen's list. At the bottom it gives way with Android's own stretch overscroll (EdgeEffect.TYPE_STRETCH,
+ * on Android 12 and up: the whole list stretches under the finger and relaxes when it lets go; a fling that hits the
+ * end stretches it too). There is none at the top: pulling down there is the swipe that closes the Apps screen
+ * (Launcher handles it), so the overscroll is only on while the list has last moved toward its bottom.
  */
 @SuppressLint("ViewConstructor")
 class DrawerScrollView(context: Context, private val dp: DeviceProfile) : ScrollView(context) {
@@ -23,7 +23,12 @@ class DrawerScrollView(context: Context, private val dp: DeviceProfile) : Scroll
     private var tracker: VelocityTracker? = null
 
     init {
-        overScrollMode = OVER_SCROLL_ALWAYS
+        overScrollMode = OVER_SCROLL_NEVER                         // at the top to begin with
+    }
+
+    override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {
+        super.onScrollChanged(l, t, oldl, oldt)
+        if (t != oldt) overScrollMode = if (t > oldt) OVER_SCROLL_ALWAYS else OVER_SCROLL_NEVER
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -31,6 +36,7 @@ class DrawerScrollView(context: Context, private val dp: DeviceProfile) : Scroll
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 topPull = 0f
+                if (scrollY <= 0) overScrollMode = OVER_SCROLL_NEVER
                 tracker?.recycle(); tracker = VelocityTracker.obtain()
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
