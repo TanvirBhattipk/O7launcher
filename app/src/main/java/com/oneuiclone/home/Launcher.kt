@@ -323,13 +323,11 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
 
     private fun setupProfile(w: Int, h: Int) {
         prefsSnapshot = snapshot()
-        // Wallpaper and style › Apps screen opacity
-        background.appsBlurScale = prefs.appsBgOpacity / 100f
-        background.set(background.current, background.currentProgress)
-        if (::searchPill.isInitialized) searchPill.backgroundOpacity = prefs.appsBarOpacity / 100f * prefs.appsBgOpacity / 100f
         val newDp = DeviceProfile(w, h, activity.resources.displayMetrics.density, insets,
             homeCols = prefs.homeCols, homeRows = prefs.homeRows, appsCols = prefs.appsCols, appsRows = prefs.appsRows,
-            iconScale = prefs.iconScale / 100f, labelScale = prefs.labelScale / 100f)
+            iconScale = prefs.iconScale / 100f, labelScale = prefs.labelScale / 100f,
+            homeTopPadDp = prefs.homeTopPad.toFloat(), homeBottomPadDp = prefs.homeBottomPad.toFloat(),
+            appsTopPadDp = prefs.appsTopPad.toFloat(), appsBottomPadDp = prefs.appsBottomPad.toFloat())
         ripple = com.oneuiclone.home.ui.TouchRipple(newDp.samsungPxScale)
         val iconChanged = !::dp.isInitialized || dp.iconSizePx != newDp.iconSizePx
         dp = newDp
@@ -358,6 +356,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
             r.minimalIcons = prefs.minimalIcons
             r.themeAllApps = prefs.themeAllApps
             r.plateAlpha = prefs.iconPlateAlpha
+            model?.let { fillHome(it, r.apps) }
             if (iconChanged || themeChanged) r.invalidateIcons(dp.iconSizePx) else bindAll()
         }
     }
@@ -428,11 +427,12 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
 
         val listTop = dp.appsListTop
         appsScroll = com.oneuiclone.home.ui.DrawerScrollView(activity, dp).apply {
+            onPullToClose = { if (state.state == StateController.State.APPS && search == null) state.goTo(StateController.State.HOME) }
             isVerticalScrollBarEnabled = false
             isVerticalFadingEdgeEnabled = true
             setFadingEdgeLength(dp.dpi(24f))
             clipToPadding = false
-            overScrollMode = View.OVER_SCROLL_NEVER                // DrawerScrollView turns the stretch on for the bottom only
+            overScrollMode = View.OVER_SCROLL_NEVER                // DrawerScrollView draws its own stretch
             // no padding: fading edges are drawn inside it, so the gap above row 1 lives in the grid instead
             // appsLayer doesn't clip its children (ripple, transitions), so clip the list to its own box:
             // otherwise rows draw behind the search pill and past the fading edge
@@ -457,7 +457,6 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         searchPill = SearchPill(activity, dp, activity.getString(R.string.search_hint))
         searchPill.glassTransparency = homeSearch.glassTransparency
         searchPill.glass = widgetGlass
-        searchPill.backgroundOpacity = prefs.appsBarOpacity / 100f * prefs.appsBgOpacity / 100f
         searchPill.setOnClickListener { openSearch() }
         val barLeft = (dp.widthPx - dp.searchBarWidth) / 2
         appsLayer.addView(searchPill, FrameLayout.LayoutParams(dp.searchBarWidth, dp.searchBarHeight).apply {
@@ -486,6 +485,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
             if (!m.load()) { m.createDefault(dp.homeCols, dp.homeRows); firstRun = true }
         }
         m.prune()
+        fillHome(m, apps)
         if (knownApps.isNotEmpty() && prefs.addNewApps) {
             // an app back from an update was "new" to the last list but kept its spot (prune): not a second icon
             val onHome = m.items.mapNotNullTo(HashSet()) { (it as? HomeItem.App)?.key }
@@ -497,6 +497,8 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
     }
 
     private var knownApps: Set<com.oneuiclone.home.model.AppKey> = emptySet()
+    /** The apps opened from search, latest first (what search shows before you type). */
+    private val recentApps = com.oneuiclone.home.model.RecentApps(activity)
 
     // ---- page dots: only while the pages scroll, in the place of the Search pill ----
     private var dotsAnim: android.animation.ValueAnimator? = null
@@ -515,26 +517,30 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
      * Home's pages are moving: the pill fades out and the dots fade in with the first pixels of the swipe (fully
      * changed over by a tenth of a page), and stay until the pages have been still for a moment.
      */
-    private fun onPagesScrolling(position: Float) {
+    private fun onPagesScrolling(@Suppress("UNUSED_PARAMETER") position: Float) {
         if (!::indicator.isInitialized || indicator.count <= 1 || edit.isActive) return
         if (workspace.isDragging) {
+            // the swipe has begun: the pill eases out and the dots ease in
             lifted = false
-            dotsAnim?.cancel()
-            val fromPage = kotlin.math.abs(position - Math.round(position))
-            applyDots(maxOf(dotsLevel, minOf(1f, fromPage / 0.1f)))
+            fadeDots(1f, 140L)
         } else if (!lifted) {
-            // the finger is up (the page is only settling): the pill comes straight back, the dots go
+            // the finger is up (the page is only settling): the pill eases straight back, the dots go
             lifted = true
-            fadeDots(0f)
+            fadeDots(0f, 150L)
         }
     }
 
-    /** The pages have settled: the dots fade out and the pill fades back in. */
-    private fun fadeDots(end: Float) {
-        if (dotsLevel == end) return
+    private var dotsTarget = 0f
+
+    /** The pill and the dots crossfade to [end] (0 = pill, 1 = dots) over [ms], easing at both ends. */
+    private fun fadeDots(end: Float, ms: Long) {
+        if (dotsTarget == end) return
+        dotsTarget = end
         dotsAnim?.cancel()
+        if (dotsLevel == end) return
         dotsAnim = android.animation.ValueAnimator.ofFloat(dotsLevel, end).apply {
-            duration = 150
+            duration = ms
+            interpolator = android.view.animation.AccelerateDecelerateInterpolator()
             addUpdateListener { applyDots(it.animatedValue as Float) }
             start()
         }
@@ -1217,7 +1223,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         if (item !is HomeItem.Folder || fromApps) opts += com.oneuiclone.home.ui.QuickOption("Select", com.oneuiclone.home.ui.QuickOption.SELECT) {}
         if (fromApps && app != null) {
             opts += com.oneuiclone.home.ui.QuickOption("Add to Home", com.oneuiclone.home.ui.QuickOption.ADD) { addToHome(app) }
-        } else if (item != null && !prefs.lockLayout) {
+        } else if (item != null && !prefs.lockLayout && (!prefs.homeOnly || item is HomeItem.Folder)) {
             opts += com.oneuiclone.home.ui.QuickOption("Remove", com.oneuiclone.home.ui.QuickOption.REMOVE) {
                 m.items.remove(item)
                 if (item is HomeItem.Folder) m.items.removeAll { it is HomeItem.App && it.folderId == item.id }
@@ -1380,17 +1386,30 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
             }.show()
     }
 
-    private fun addToHome(app: AppInfo, rebind: Boolean = true) {
+    private fun addToHome(app: AppInfo, rebind: Boolean = true, save: Boolean = true) {
         val m = model ?: return
         for (page in 0 until m.pageCount) for (y in 0 until dp.homeRows) for (x in 0 until dp.homeCols) {
             if (!m.isOccupied(page, x, y)) {
                 m.items += HomeItem.App(m.newId(), app.key, Container.WORKSPACE, page, x, y)
-                m.save(); if (rebind) bindWorkspace(); return
+                if (save) m.save()
+                if (rebind) bindWorkspace()
+                return
             }
         }
         m.pageCount++
         m.items += HomeItem.App(m.newId(), app.key, Container.WORKSPACE, m.pageCount - 1, 0, 0)
-        m.save(); if (rebind) bindWorkspace()
+        if (save) m.save()
+        if (rebind) bindWorkspace()
+    }
+
+    /** Home screen apps: every app is on a Home page (the ones not placed yet go to the first free spots, A–Z). */
+    private fun fillHome(m: WorkspaceModel, apps: List<AppInfo>) {
+        if (!prefs.homeOnly) return
+        val onHome = m.items.mapNotNullTo(HashSet()) { (it as? HomeItem.App)?.key }
+        val missing = apps.filter { it.key !in onHome }
+        if (missing.isEmpty()) return
+        missing.forEach { addToHome(it, rebind = false, save = false) }
+        m.save()
     }
 
     /** Icons › Apply to Apps screen and search: there (and in the Bubble and Split panels) apps get Home's icons, not their own. */
@@ -1434,7 +1453,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         appsGrid.gapAfterRow = if (lead == 1) 0 else -1
         appsGrid.gapPx = if (lead == 1) dp.dpi(com.oneuiclone.home.ui.SuggestedRowBackground.GAP_DP) else 0
         val topGap = dp.appsGrid.top - dp.appsListTop
-        val bottomGap = insets.bottom + dp.dpi(16f)          // last row clears the navigation bar
+        val bottomGap = insets.bottom + dp.dpi(16f) + dp.appsBottomPad          // last row clears the navigation bar
         appsGrid.setPadding(dp.appsGrid.left, topGap, dp.widthPx - dp.appsGrid.right, bottomGap)
         appsGrid.layoutParams = appsGrid.layoutParams.apply { height = topGap + rows * (dp.appsGrid.height() / dp.appsRows) + appsGrid.gapPx + bottomGap }
         fun appIcon(app: AppInfo) = IconView(activity, dp).apply {
@@ -2540,10 +2559,14 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
                 if (abs(dy) > slop && abs(dy) > abs(dx) * 1.2f && !workspace.isDragging) {
                     // even at the list's end, so scrolling a widget never opens Apps or the shade by accident (Launcher3)
                     if (downOnWidgetScroller) return false
+                    // the Apps screen is still opening or closing: a second swipe doesn't start another one (the list scrolls)
+                    if (state.isTransitioning) return false
                     // Just below the dock icons and down, swiping up belongs to the system's home / recents gesture
                     if (state.state == StateController.State.HOME && dy < 0 && downY >= swipeUpDeadLine()) return false
                     if (state.state == StateController.State.HOME && dy < 0) {
-                        if (prefs.swipeUpSearch && !prefs.swipeDownSearch) { openSearch(fromHome = true); consumed = true } else startTracking(true)
+                        if (prefs.swipeUpSearch && !prefs.swipeDownSearch) { openSearch(fromHome = true); consumed = true }
+                        else if (prefs.homeOnly) return false          // Home screen apps: there is no Apps screen to open
+                        else startTracking(true)
                         return true
                     }
                     if (state.state == StateController.State.HOME && dy > 0 && prefs.swipeDownSearch) {
@@ -2552,10 +2575,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
                     if (state.state == StateController.State.HOME && dy > 0 && prefs.swipeDownNotifications) {
                         expandNotifications(); consumed = true; return true
                     }
-                    // pulling down returns Home only from the top of the list; otherwise the list scrolls
-                    if (state.state == StateController.State.APPS && dy > 0 && !appsScroll.canScrollVertically(-1)) {
-                        startTracking(false); return true
-                    }
+                    // (at the top of the Apps list a pull down stretches it, and a quick swipe closes it: DrawerScrollView)
                 }
             }
             MotionEvent.ACTION_POINTER_DOWN -> if (ev.pointerCount == 2) pinchStart = spread(ev)
@@ -2639,10 +2659,10 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         val origin = if (fromHome) homeSearchOrigin() else drawerSearchOrigin()
         lateinit var s: com.oneuiclone.home.ui.AppsSearch
         s = com.oneuiclone.home.ui.AppsSearch(activity, dp, { repo?.apps ?: emptyList() },
-            onLaunch = { v, a -> closeSearch(toHome = false); launch(v, a) },
+            onLaunch = { v, a -> recentApps.add(a.key); closeSearch(toHome = false); launch(v, a) },
             configureIcon = { v, a -> setAppsIcon(v, a); v.appInfo = a; attachItem(v, null, a, true) { folderSiblings(v) } },
             sources = searchSources,
-            barOpacity = prefs.searchBarOpacity / 100f * prefs.appsBgOpacity / 100f,
+            recents = { recentApps.resolve(repo?.apps ?: emptyList()) },
             firstPage = { model?.firstPageApps() ?: emptySet() },
             onOpenIntent = { v, intent ->
                 closeSearch(toHome = false)
