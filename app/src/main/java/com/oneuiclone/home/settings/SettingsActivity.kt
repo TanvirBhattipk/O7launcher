@@ -66,11 +66,12 @@ class SettingsActivity : OneUiPage() {
 
         card {
             item("Home screen grid", "${prefs.homeCols}×${prefs.homeRows}") {
-                choose("Home screen grid", listOf(4 to 5, 4 to 6, 5 to 5, 5 to 6)) { (c, r) -> prefs.homeCols = c; prefs.homeRows = r }
+                choose("Home screen grid", listOf(4 to 5, 4 to 6, 4 to 7, 5 to 5, 5 to 6)) { (c, r) -> prefs.homeCols = c; prefs.homeRows = r }
             }
             item("Apps screen grid", "${prefs.appsCols}×${prefs.appsRows}") {
-                choose("Apps screen grid", listOf(4 to 5, 4 to 6, 5 to 5, 5 to 6)) { (c, r) -> prefs.appsCols = c; prefs.appsRows = r }
+                choose("Apps screen grid", listOf(4 to 5, 4 to 6, 4 to 7, 5 to 5, 5 to 6)) { (c, r) -> prefs.appsCols = c; prefs.appsRows = r }
             }
+            toggle("Home screen apps", "Turns off the Apps screen: every app is on the Home screen", prefs.homeOnly) { prefs.homeOnly = it }
             header("Icon padding")
             slider("Home screen top", prefs.homeTopPad, 0, 80) { prefs.homeTopPad = it }
             slider("Home screen bottom", prefs.homeBottomPad, 0, 80) { prefs.homeBottomPad = it }
