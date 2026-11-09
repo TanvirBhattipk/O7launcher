@@ -40,13 +40,8 @@ class BackgroundController(
     /** Full-strength blur radius in px (tuned against One UI screenshots). */
     var maxRadiusPx = (activity.resources.displayMetrics.widthPixels * 0.16f)
 
-    /** 0..1: the Apps screen's opacity (Wallpaper and style › Apps screen opacity): how much of its blur and dimming shows. */
+    /** 1 = the Apps screen's full blur and dimming. */
     var appsBlurScale = 1f
-
-    /** The Apps screen's background panel: a half-opaque tint (50% at full opacity), part of its frosted look. */
-    private fun panelOf(k: Kind) = if (k == Kind.APPS || k == Kind.APPS_FOLDER) 0.5f * appsBlurScale else 0f
-    /** Dark whatever the theme: the Apps screen's background doesn't go light in light mode. */
-    private val panelColor get() = 0x1C1C1E
 
     private fun dimOf(k: Kind) = if (k == Kind.APPS || k == Kind.APPS_FOLDER) k.dim * appsBlurScale else k.dim
 
@@ -88,8 +83,6 @@ class BackgroundController(
         val q = 1f - p
         val blur = p * factor(kind) + q * factor(from)
         val dim = p * dimOf(kind) + q * dimOf(from)
-        scrim.panelColor = panelColor
-        scrim.panelAlpha = p * panelOf(kind) + q * panelOf(from)
         if (wallpaper.available) {
             // launcher-drawn wallpaper: exact One UI pipeline (blur + colour curve), dim on top
             if (lastRadius != 0) { activity.window.setBackgroundBlurRadius(0); lastRadius = 0 }
@@ -118,13 +111,9 @@ class BackgroundController(
 class ScrimView(context: Context) : View(context) {
     var curveAlpha = 0f
     var dimAlpha = 0f
-    /** The Apps screen's background panel (RGB without alpha, and its opacity). */
-    var panelColor = 0
-    var panelAlpha = 0f
 
     override fun onDraw(canvas: Canvas) {
         if (curveAlpha > 0f) canvas.drawColor(((curveAlpha * 255).roundToInt() shl 24) or 0xA5A5A5)
-        if (panelAlpha > 0f) canvas.drawColor(((panelAlpha.coerceAtMost(1f) * 255).roundToInt() shl 24) or panelColor)
         if (dimAlpha > 0f) canvas.drawColor(((dimAlpha.coerceAtMost(1f) * 255).roundToInt() shl 24))
     }
 }
