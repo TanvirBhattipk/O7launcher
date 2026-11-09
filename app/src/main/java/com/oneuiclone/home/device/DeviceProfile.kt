@@ -18,6 +18,11 @@ class DeviceProfile(
     val appsRows: Int = 6,
     val iconScale: Float = 1f,
     val labelScale: Float = 1f,
+    /** Extra space (dp) above and below Home's icons and the Apps screen's (Home screen settings). */
+    val homeTopPadDp: Float = 0f,
+    val homeBottomPadDp: Float = 0f,
+    val appsTopPadDp: Float = 0f,
+    val appsBottomPadDp: Float = 0f,
 ) {
     fun dp(v: Float) = v * density
     fun dpi(v: Float) = (v * density).roundToInt()
@@ -33,16 +38,18 @@ class DeviceProfile(
     val hotseatHeight = (heightPx * 0.124f).roundToInt()           // hotseat_bar_height_ratio
     val pageSidePadding = (widthPx * 0.029f).roundToInt()          // wider icon grid (stock: page_left/right_padding_width_ratio 0.038)
 
+    /** Where the grid would end with no extra bottom padding: the page indicator and the dock stay under it. */
+    private val gridBottom = heightPx - pageBottomPadding - hotseatHeight - indicatorAreaHeight
     val workspaceGrid: Rect = Rect(
         pageSidePadding,
-        pageTopPadding,
+        pageTopPadding + dpi(homeTopPadDp),
         widthPx - pageSidePadding,
-        heightPx - pageBottomPadding - hotseatHeight - indicatorAreaHeight,
+        gridBottom - dpi(homeBottomPadDp),
     )
     val cellWidth = workspaceGrid.width() / homeCols
     val cellHeight = workspaceGrid.height() / homeRows
 
-    val indicatorRect = Rect(0, workspaceGrid.bottom, widthPx, workspaceGrid.bottom + indicatorAreaHeight)
+    val indicatorRect = Rect(0, gridBottom, widthPx, gridBottom + indicatorAreaHeight)
     val hotseatRect = Rect(
         pageSidePadding,                                             // the dock's icons sit in the same columns as Home's (stock: 0.036 of the width)
         indicatorRect.bottom,
@@ -77,10 +84,12 @@ class DeviceProfile(
         (heightPx * 0.012f).roundToInt() - (heightPx * 0.088f).roundToInt()
     val appsGrid = Rect(
         appsSidePadding,
-        appsListTop + dpi(6f),
+        appsListTop + dpi(6f) + dpi(appsTopPadDp),
         widthPx - appsSidePadding,
-        appsListTop + dpi(6f) + appsGridHeight,
+        appsListTop + dpi(6f) + dpi(appsTopPadDp) + appsGridHeight,
     )
+    /** Space the Apps list keeps under its last row. */
+    val appsBottomPad = dpi(appsBottomPadDp)
     val appsIndicatorRect = Rect(0, appsGrid.bottom, widthPx, appsGrid.bottom + appsIndicatorHeight)
 
     // ---- transitions ----
