@@ -17,13 +17,13 @@ class Prefs(context: Context) {
     /** 85..115 % (Home Up range); stock small/medium/large = 90/100/110. */
     var iconScale: Int get() = sp.getInt("icon_scale", 100); set(v) = sp.edit().putInt("icon_scale", v).apply()
     /** 70..130 % of the stock app label size (Icons › Label size), on Home, the Apps screen and search. */
-    /**
-     * Opacity (0..100 %) of the Apps screen's background (its frosted look: blur and dimming), of the Apps screen's
-     * search bar and of the search bar. A bar's own % is of the background's: the bar follows the background.
-     */
-    var appsBgOpacity: Int get() = sp.getInt("apps_bg_opacity", 100); set(v) = sp.edit().putInt("apps_bg_opacity", v).apply()
-    var appsBarOpacity: Int get() = sp.getInt("apps_bar_opacity", 100); set(v) = sp.edit().putInt("apps_bar_opacity", v).apply()
-    var searchBarOpacity: Int get() = sp.getInt("search_bar_opacity", 100); set(v) = sp.edit().putInt("search_bar_opacity", v).apply()
+    /** Home screen apps: no Apps screen; every app is on a Home page. */
+    var homeOnly: Boolean get() = sp.getBoolean("home_only", false); set(v) = sp.edit().putBoolean("home_only", v).apply()
+    /** Space (dp) above and below the icons of Home and of the Apps screen (Home screen settings). */
+    var homeTopPad: Int get() = sp.getInt("home_top_pad", 0); set(v) = sp.edit().putInt("home_top_pad", v).apply()
+    var homeBottomPad: Int get() = sp.getInt("home_bottom_pad", 0); set(v) = sp.edit().putInt("home_bottom_pad", v).apply()
+    var appsTopPad: Int get() = sp.getInt("apps_top_pad", 0); set(v) = sp.edit().putInt("apps_top_pad", v).apply()
+    var appsBottomPad: Int get() = sp.getInt("apps_bottom_pad", 0); set(v) = sp.edit().putInt("apps_bottom_pad", v).apply()
     var labelScale: Int get() = sp.getInt("label_scale", 100); set(v) = sp.edit().putInt("label_scale", v).apply()
     var homeLabels: Boolean get() = sp.getBoolean("home_labels", true); set(v) = sp.edit().putBoolean("home_labels", v).apply()
     var appsLabels: Boolean get() = sp.getBoolean("apps_labels", true); set(v) = sp.edit().putBoolean("apps_labels", v).apply()

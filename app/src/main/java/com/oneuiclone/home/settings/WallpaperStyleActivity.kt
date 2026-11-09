@@ -89,13 +89,6 @@ class WallpaperStyleActivity : OneUiPage() {
             row("Change wallpapers", null, primary, null, { pickPhoto() }, titleWeight = 600)
         }
         card {
-            header("Apps screen opacity")
-            // the two bars follow the drawer's background: each shows at its own % of the background's
-            slider("App drawer background", prefs.appsBgOpacity, 0, 100) { prefs.appsBgOpacity = it }
-            slider("App drawer search bar", prefs.appsBarOpacity, 0, 100) { prefs.appsBarOpacity = it }
-            slider("Search bar", prefs.searchBarOpacity, 0, 100) { prefs.searchBarOpacity = it }
-        }
-        card {
             row("Colour palette", "Choose a palette based on colours from your wallpaper.", sub,
                 Swatch(this@WallpaperStyleActivity).apply { layoutParams = LinearLayout.LayoutParams(dp(34f), dp(56f)).apply { marginStart = dp(16f) } },
                 { openColours() }, titleWeight = 600)
