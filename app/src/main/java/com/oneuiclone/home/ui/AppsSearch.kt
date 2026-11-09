@@ -456,6 +456,232 @@ class AppsSearch(
         }
         results.visibility = if (list.isEmpty()) GONE else VISIBLE
     }
+    private fun initials(s: String) = s.split(' ', '-', '.').filter { it.isNotEmpty() }.joinToString("") { it.take(1) }
+
+    // ---------------------------------------------------------------------------------------------
+    // Google results
+    // ---------------------------------------------------------------------------------------------
+
+    private fun fetchSuggestions(q: String) {
+        pendingFetch?.let { main.removeCallbacks(it) }
+        if (q.isEmpty() || !com.oneuiclone.home.settings.Prefs(context).webSuggestions) return
+        val r = Runnable {
+            net.execute {
+                val list = try { suggest(q) } catch (_: Exception) { emptyList() }
+                main.post { if (isOpen && field.text.toString().trim() == q && list.isNotEmpty()) setWeb(q, list) }
+            }
+        }
+        pendingFetch = r
+        main.postDelayed(r, 150)
+    }
+
+    /** Google's public autocomplete endpoint: `["query", ["suggestion", …]]`. */
+    private fun suggest(q: String): List<String> {
+        val lang = Locale.getDefault().toLanguageTag()
+        val url = URL("https://suggestqueries.google.com/complete/search?client=firefox&ie=UTF-8&oe=UTF-8&hl=$lang&q=" +
+            URLEncoder.encode(q, "UTF-8"))
+        val c = url.openConnection() as HttpURLConnection
+        c.connectTimeout = 2500; c.readTimeout = 2500
+        return try {
+            val body = c.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            val arr = org.json.JSONArray(body).getJSONArray(1)
+            (0 until arr.length()).map { arr.getString(it) }
+        } finally {
+            c.disconnect()
+        }
+    }
+
+    /** The typed query, then Google's suggestions; [render] decides how many show. */
+    private fun setWeb(q: String, suggestions: List<String>) {
+        webList = listOf(q) + suggestions.filter { !it.equals(q, ignoreCase = true) }.take(MAX_WEB - 1)
+        render()
+    }
+
+    private fun showWeb(list: List<String>) {
+        if (list == shownWeb) return
+        val old = shownWeb
+        shownWeb = list
+        web.removeAllViews()
+        web.visibility = if (list.isEmpty()) GONE else VISIBLE
+        if (list.isEmpty()) return
+        val card = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply { cornerRadius = dp.dp(26f); setColor(0x1FFFFFFF) }
+            setPadding(0, dp.dpi(CARD_PAD_DP), 0, dp.dpi(CARD_PAD_DP))
+            clipToOutline = true
+        }
+        list.forEachIndexed { i, s ->
+            val r = row(MagnifierView(context, 0xCCFAFAFA.toInt()), 20f, s, null, true) { webSearch(s) }
+            card.addView(r, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp.dpi(ROW_DP)))
+            if (old.getOrNull(i) != s) reveal(r)
+        }
+        web.addView(card)
+        if (old.isEmpty()) reveal(card)
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // contacts
+    // ---------------------------------------------------------------------------------------------
+
+    /** Contacts come from a worker; the previous answers stay up until the new ones land. */
+    private fun querySources(raw: String) {
+        pendingSources?.let { main.removeCallbacks(it) }
+        val r = Runnable {
+            sources.query(raw) { ct ->
+                if (!isOpen || field.text.toString().trim() != raw) return@query
+                contactsList = ct
+                render()
+            }
+        }
+        pendingSources = r
+        main.postDelayed(r, 60)
+    }
+
+    /** Two chips a row, [chip] px tall; [invite]: one wide chip asking for contacts access instead. */
+    private fun showContacts(list: List<SearchSources.Contact>, invite: Boolean, chip: Int) {
+        val keys = if (invite) listOf(INVITE_ID) else list.map { it.id }
+        if (keys == shownContacts) {
+            if (chip != shownChipHeight) { shownChipHeight = chip; forEachChip { sizeChip(it, chip) } }
+            return
+        }
+        val old = shownContacts
+        shownContacts = keys
+        shownChipHeight = chip
+        val chips = if (invite) {
+            listOf(chip(ContactAvatar(context, null, "", 0xFF3E91FF.toInt()), "Allow access to show contacts", false) { onRequestContacts() })
+        } else list.map { c ->
+            chip(ContactAvatar(context, c.photo, c.name, avatarColor(c.name)), c.name, false) {
+                sources.contactOpened(c)
+                onOpenIntent(it, Intent(Intent.ACTION_VIEW, c.uri))     // the contact's own page
+            }
+        }
+        contactsBox.removeAllViews()
+        contactsBox.visibility = if (chips.isEmpty()) GONE else VISIBLE
+        val lines = chips.chunked(if (invite) 1 else 2)
+        lines.forEachIndexed { i, pair ->
+            val line = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
+            pair.forEachIndexed { j, c ->
+                line.addView(c, LinearLayout.LayoutParams(0, chip, 1f).apply { if (j > 0) leftMargin = dp.dpi(CHIP_GAP_DP) })
+                sizeChip(c, chip)
+                if (old.getOrNull(i * 2 + j) != keys[i * 2 + j]) reveal(c)
+            }
+            if (pair.size == 1 && !invite) line.addView(View(context), LinearLayout.LayoutParams(0, 0, 1f).apply { leftMargin = dp.dpi(CHIP_GAP_DP) })
+            contactsBox.addView(line, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                if (i > 0) topMargin = dp.dpi(CHIP_GAP_DP)
+            })
+        }
+    }
+
+    private fun forEachChip(block: (View) -> Unit) {
+        for (i in 0 until contactsBox.childCount) {
+            val line = contactsBox.getChildAt(i) as? ViewGroup ?: continue
+            for (j in 0 until line.childCount) line.getChildAt(j).takeIf { it.tag == CHIP }?.let(block)
+        }
+    }
+
+    /** Height, corners and avatar for a chip [h] px tall (suggestions stretch to fill the space). */
+    private fun sizeChip(c: View, h: Int) {
+        (c.layoutParams as? LinearLayout.LayoutParams)?.let { if (it.height != h) { it.height = h; c.layoutParams = it } }
+        if (c !== enterTarget) c.background = chipBackground(h)
+        val avatar = (c as ViewGroup).getChildAt(0)
+        val size = (h - dp.dpi(12f)).coerceIn(dp.dpi(32f), dp.dpi(40f))
+        avatar.layoutParams = avatar.layoutParams.apply { width = size; height = size }
+        c.setPadding(((h - size) / 2).coerceAtLeast(dp.dpi(6f)), 0, dp.dpi(14f), 0)
+    }
+
+    private fun chip(avatar: View, name: String, enterable: Boolean, onClick: (View) -> Unit): View =
+        LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            isClickable = true
+            tag = CHIP
+            setTag(R_ENTERABLE, enterable)
+            setOnClickListener { onClick(this) }
+            addView(avatar, LinearLayout.LayoutParams(dp.dpi(32f), dp.dpi(32f)))
+            addView(TextView(context).apply {
+                text = name
+                setTextColor(0xFFFAFAFA.toInt())
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                typeface = Fonts.ui(context, 400)
+                isSingleLine = true
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp.dpi(10f) })
+        }
+
+    private fun chipBackground(h: Int): android.graphics.drawable.Drawable {
+        val glass = GradientDrawable().apply { cornerRadius = h / 2f; setColor(0x1FFFFFFF) }
+        return android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x33FFFFFF), glass, glass)
+    }
+
+    /** After the READ_CONTACTS prompt: search again with the answer, and bring the keyboard back. */
+    fun onContactsPermission(granted: Boolean) {
+        if (!isOpen) return
+        if (!granted) searchPrefs.edit().putBoolean(KEY_CONTACTS_DECLINED, true).apply()
+        val raw = field.text.toString().trim()
+        render()                                       // the invitation goes either way
+        // asked for from this search: its suggestions may come in now
+        if (granted) sources.refresh(force = true) {
+            suggested = sources.snapshot.contacts
+            if (isOpen && field.text.isNullOrBlank()) { contactsList = suggested; render() }
+        }
+        if (raw.isNotEmpty()) querySources(raw)
+        field.requestFocus()
+        context.getSystemService(InputMethodManager::class.java)?.showSoftInput(field, 0)
+    }
+
+    private fun avatarColor(name: String) = AVATAR_COLORS[(name.hashCode() and 0x7FFFFFFF) % AVATAR_COLORS.size]
+
+    /** [enterable]: IME "go" may open it. */
+    private fun row(leading: View, leadingDp: Float, title: String, subtitle: String?, enterable: Boolean, onClick: (View) -> Unit): View =
+        LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp.dpi(18f), 0, dp.dpi(18f), 0)
+            isClickable = true
+            tag = if (leadingDp > 24f) ROW_TALL else null
+            setTag(R_ENTERABLE, enterable)
+            background = rowRipple()
+            setOnClickListener { onClick(this) }
+            addView(leading, LinearLayout.LayoutParams(dp.dpi(leadingDp), dp.dpi(leadingDp)))
+            val texts = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+            texts.addView(TextView(context).apply {
+                text = title
+                setTextColor(0xFFFAFAFA.toInt())
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                typeface = Fonts.ui(context, 400)
+                isSingleLine = true
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            })
+            if (subtitle != null) texts.addView(TextView(context).apply {
+                text = subtitle
+                setTextColor(0x99FAFAFA.toInt())
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                typeface = Fonts.ui(context, 400)
+                isSingleLine = true
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            })
+            addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                leftMargin = dp.dpi(if (leadingDp > 24f) 14f else 16f)
+            })
+        }
+
+    private fun rowRipple() = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x33FFFFFF), null, null)
+
+    // ---------------------------------------------------------------------------------------------
+    // enter target (Pixel launcher's highlighted first result)
+    // ---------------------------------------------------------------------------------------------
+
+    private fun firstEnterable(box: ViewGroup): View? {
+        if (box.visibility != VISIBLE) return null
+        for (i in 0 until box.childCount) {
+            val c = box.getChildAt(i)
+            if (c.getTag(R_ENTERABLE) == true) return c
+            if (c is ViewGroup) firstEnterable(c)?.let { return it }
+        }
+        return null
+    }
+
+    /** Nothing is highlighted before a query is typed: "go" has nothing to open then. */
     private fun updateEnterTarget() {
         val target = if (field.text.isNullOrBlank()) null
             else (results.getChildAt(0) as? IconView) ?: firstEnterable(contactsBox) ?: firstEnterable(web)
