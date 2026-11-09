@@ -75,9 +75,8 @@ class StateController(
      */
     fun release(velocity: Float) {
         dragging = false
-        val isFling = abs(velocity) > 1f
-        val reverseFling = isFling && velocity < 0f
-        val commit = (isFling || f > 0.4f) && !reverseFling
+        // it takes a longer swipe than before and speed doesn't count: a quick flick that goes only a short way falls back
+        val commit = f > COMMIT_AT && velocity > -1f
         f = 0f
         run(if (commit) (if (toApps) State.APPS else State.HOME) else state)
     }
@@ -190,5 +189,9 @@ class StateController(
         v.visibility = if (shown) View.VISIBLE else View.INVISIBLE
     }
 
-    private companion object { const val OPEN_MS = 420L }
+    private companion object {
+        const val OPEN_MS = 420L
+        /** How far a swipe has to go (0…1 of its distance, about 185dp) to open or close. */
+        const val COMMIT_AT = 0.65f
+    }
 }
