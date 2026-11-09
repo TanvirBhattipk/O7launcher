@@ -428,12 +428,11 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
 
         val listTop = dp.appsListTop
         appsScroll = com.oneuiclone.home.ui.DrawerScrollView(activity, dp).apply {
-            onPullToClose = { if (state.state == StateController.State.APPS && search == null) state.goTo(StateController.State.HOME) }
             isVerticalScrollBarEnabled = false
             isVerticalFadingEdgeEnabled = true
             setFadingEdgeLength(dp.dpi(24f))
             clipToPadding = false
-            overScrollMode = View.OVER_SCROLL_ALWAYS               // Android's stretch overscroll at both ends
+            overScrollMode = View.OVER_SCROLL_NEVER                // DrawerScrollView turns the stretch on for the bottom only
             // no padding: fading edges are drawn inside it, so the gap above row 1 lives in the grid instead
             // appsLayer doesn't clip its children (ripple, transitions), so clip the list to its own box:
             // otherwise rows draw behind the search pill and past the fading edge
@@ -503,8 +502,8 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
     private var dotsAnim: android.animation.ValueAnimator? = null
     /** 0 = the Search pill shows, 1 = the dots show. */
     private var dotsLevel = 0f
-    private val hideDots = Runnable { if (workspace.isDragging) postHideDots() else fadeDots(0f) }
-    private fun postHideDots() { root.removeCallbacks(hideDots); root.postDelayed(hideDots, 700L) }
+    /** The finger has lifted and the pill is already on its way back (not to be pushed out again as the page settles). */
+    private var lifted = true
 
     private fun applyDots(level: Float) {
         dotsLevel = level
@@ -518,10 +517,16 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
      */
     private fun onPagesScrolling(position: Float) {
         if (!::indicator.isInitialized || indicator.count <= 1 || edit.isActive) return
-        dotsAnim?.cancel()
-        val fromPage = kotlin.math.abs(position - Math.round(position))
-        applyDots(maxOf(dotsLevel, minOf(1f, fromPage / 0.1f)))
-        postHideDots()
+        if (workspace.isDragging) {
+            lifted = false
+            dotsAnim?.cancel()
+            val fromPage = kotlin.math.abs(position - Math.round(position))
+            applyDots(maxOf(dotsLevel, minOf(1f, fromPage / 0.1f)))
+        } else if (!lifted) {
+            // the finger is up (the page is only settling): the pill comes straight back, the dots go
+            lifted = true
+            fadeDots(0f)
+        }
     }
 
     /** The pages have settled: the dots fade out and the pill fades back in. */
@@ -529,7 +534,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         if (dotsLevel == end) return
         dotsAnim?.cancel()
         dotsAnim = android.animation.ValueAnimator.ofFloat(dotsLevel, end).apply {
-            duration = 220
+            duration = 150
             addUpdateListener { applyDots(it.animatedValue as Float) }
             start()
         }
@@ -2547,7 +2552,10 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
                     if (state.state == StateController.State.HOME && dy > 0 && prefs.swipeDownNotifications) {
                         expandNotifications(); consumed = true; return true
                     }
-                    // (pulling down at the top of the Apps list stretches it; far enough, it closes: DrawerScrollView)
+                    // pulling down returns Home only from the top of the list; otherwise the list scrolls
+                    if (state.state == StateController.State.APPS && dy > 0 && !appsScroll.canScrollVertically(-1)) {
+                        startTracking(false); return true
+                    }
                 }
             }
             MotionEvent.ACTION_POINTER_DOWN -> if (ev.pointerCount == 2) pinchStart = spread(ev)
@@ -2793,7 +2801,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         when (ev.actionMasked) {
             MotionEvent.ACTION_MOVE -> if (tracking) {
                 val d = if (trackToApps) downY - ev.y else ev.y - downY
-                state.drag(d / dp.swipeProgressDistance)
+                state.drag(d / dp.swipeProgressDistance, d.coerceAtLeast(0f))
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (tracking) {
