@@ -51,8 +51,12 @@ object IconShape {
     private const val SQUIRCLE_PATH = "M50,1C77.063,1,99,6.935,99,50C99,93.063,77.063,99,50,99C22.935,99,1,93.063,1,50C1,6.935,22.935,1,50,1z"
     /** Square: custom path, used exactly as given (100-unit box, edge to edge). */
     private const val SQUARE_PATH = "M 0 42.5 C 0 26.132812 0 17.949219 3.683594 11.9375 C 5.746094 8.574219 8.574219 5.746094 11.9375 3.683594 C 17.949219 0 26.132812 0 42.5 0 L 57.5 0 C 73.867188 0 82.050781 0 88.0625 3.683594 C 91.425781 5.746094 94.253906 8.574219 96.316406 11.9375 C 100 17.949219 100 26.132812 100 42.5 L 100 57.5 C 100 73.867188 100 82.050781 96.316406 88.0625 C 94.253906 91.425781 91.425781 94.253906 88.0625 96.316406 C 82.050781 100 73.867188 100 57.5 100 L 42.5 100 C 26.132812 100 17.949219 100 11.9375 96.316406 C 8.574219 94.253906 5.746094 91.425781 3.683594 88.0625 C 0 82.050781 0 73.867188 0 57.5 Z M 0 42.5 "
-    /** Square's corner radius (share of the box), still used by [corner] for rounded-rect stand-ins. */
-    private const val SQUARE_CORNER = 23f
+    /**
+     * Square's rounded-rectangle fallback radius. The supplied Bézier path reaches 42.5 units
+     * from each edge before its straight sections begin, so use the same normalized reach
+     * when a caller needs a rounded-rectangle approximation instead of the exact Path.
+     */
+    private const val SQUARE_CORNER = 42.5f
     /** Cookie: a superellipse this square, its sides pinched in by this much of its reach. */
     private const val COOKIE_N = 3.2
     private const val COOKIE_PINCH = 0.11
@@ -94,7 +98,7 @@ object IconShape {
      */
     fun corner(squircle: Float, id: String = current) = when (id) {
         CIRCLE -> 0.5f
-        SQUARE -> SQUARE_CORNER / 98f
+        SQUARE -> SQUARE_CORNER / 100f
         else -> squircle
     }
 
