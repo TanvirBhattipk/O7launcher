@@ -6,21 +6,22 @@ import android.text.TextPaint
 import android.view.View
 import android.view.ViewGroup
 import com.oneuiclone.home.device.DeviceProfile
-import kotlin.math.roundToInt
 
 /**
  * The row of apps on the search page: up to [COLS] icons on a subtle rounded panel as wide as the search bar, with no
  * labels. The same padding all round: the first and last icons are [pad] from the panel's sides, and the icons are
- * [pad] from its top and its bottom. With fewer than [COLS] apps the group is centred. The icons are 20% smaller than
- * Home's; each sits in a square [hl] bigger than it all round, which is also the highlight of the first result.
+ * [padV] from its top and its bottom (taller than the sides). With fewer than [COLS] apps the group is centred. The
+ * icons are Home's size but fixed ([DeviceProfile.recentsIconSizePx]); each sits in a square [hl] bigger than it all round, which is also the highlight of the first result.
  */
 class RecentsRow(context: Context, private val dp: DeviceProfile) : ViewGroup(context) {
 
     val pad = dp.dpi(14f)
+    /** Space above and below the icons: the panel is taller than the sides' padding alone would make it. */
+    private val padV = dp.dpi(22f)
     /** How far the highlight square reaches past the icon. */
     private val hl = dp.dpi(7f)
     /** The size of an icon in the row (even, so it sits on whole pixels). */
-    val iconPx = (dp.iconSizePx * ICON_SCALE).roundToInt().let { if (it % 2 == 1) it + 1 else it }
+    val iconPx = dp.recentsIconSizePx
     private val slot = iconPx + 2 * hl
 
     init {
@@ -42,7 +43,7 @@ class RecentsRow(context: Context, private val dp: DeviceProfile) : ViewGroup(co
         for (i in 0 until childCount) {
             getChildAt(i).measure(MeasureSpec.makeMeasureSpec(slot, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(slot, MeasureSpec.EXACTLY))
         }
-        setMeasuredDimension(w, iconPx + 2 * pad)
+        setMeasuredDimension(w, iconPx + 2 * padV)
     }
 
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
@@ -52,12 +53,11 @@ class RecentsRow(context: Context, private val dp: DeviceProfile) : ViewGroup(co
         val start = (w - used) / 2
         for (i in 0 until childCount) {
             val left = start + i * step - hl
-            getChildAt(i).layout(left, pad - hl, left + slot, pad - hl + slot)
+            getChildAt(i).layout(left, padV - hl, left + slot, padV - hl + slot)
         }
     }
 
     companion object {
         const val COLS = 4
-        const val ICON_SCALE = 0.8f
     }
 }

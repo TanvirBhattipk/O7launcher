@@ -791,10 +791,11 @@ class AppsSearch(
         pill.y = barTop() - dp.dp(BAR_SLIDE_DP) * (1f - f)
         pill.alpha = f.coerceIn(0f, 1f)
         pillBg.cornerRadius = h / 2f
-        pillBg.setColor(withOpacity(colors.homePill))                // dark in light mode too
-        pillBg.setStroke(dp.dpi(1f), withOpacity(colors.stroke))
+        // the same light glass as the Apps screen's search bar (the pill it grows from): its tint, border and ink
+        pillBg.setColor(withOpacity(o.fill))
+        pillBg.setStroke(dp.dpi(1f), withOpacity(o.stroke))
         pillGlass = if (o.glass != null) (barGlass ?: o.glass) else null
-        val ink = colors.hint
+        val ink = o.ink ?: colors.hint
         glyph.color = ink
         field.setHintTextColor(ink)
         pill.elevation = 0f
