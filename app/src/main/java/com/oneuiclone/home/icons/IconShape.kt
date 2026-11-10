@@ -46,8 +46,10 @@ object IconShape {
 
     /** One UI 8.5's config_icon_mask (IconFactory.ONE_UI_MASK) redrawn to start at the top and run clockwise. */
     private const val SQUIRCLE_PATH = "M50,1C77.063,1,99,6.935,99,50C99,93.063,77.063,99,50,99C22.935,99,1,93.063,1,50C1,6.935,22.935,1,50,1z"
-    /** Square's corner radius, of the 100-unit box. */
-    private const val SQUARE_CORNER = 23f 
+    /** Square: custom 192-unit squircle path, rewritten to start at the top and run clockwise; scaled to the 100-unit box (1-unit margin) in [roundedSquare]. */
+    private const val SQUARE_PATH = "M 96 0 H 110.4 C 141.825 0 157.537 0 169.08 7.07327 C 175.539 11.0311 180.969 16.4614 184.927 22.9201 C 192 34.4626 192 50.1751 192 81.6 V 110.4 C 192 141.825 192 157.537 184.927 169.08 C 180.969 175.539 175.539 180.969 169.08 184.927 C 157.537 192 141.825 192 110.4 192 H 81.6 C 50.1751 192 34.4626 192 22.9201 184.927 C 16.4614 180.969 11.0311 175.539 7.07327 169.08 C 0 157.537 0 141.825 0 110.4 V 81.6 C 0 50.1751 0 34.4626 7.07327 22.9201 C 11.0311 16.4614 16.4614 11.0311 22.9201 7.07327 C 34.4626 0 50.1751 0 81.6 0 H 96 Z"
+    /** Square's corner radius (share of the box), still used by [corner] for rounded-rect stand-ins. */
+    private const val SQUARE_CORNER = 23f
     /** Cookie: a superellipse this square, its sides pinched in by this much of its reach. */
     private const val COOKIE_N = 3.2
     private const val COOKIE_PINCH = 0.11
@@ -102,14 +104,8 @@ object IconShape {
     /** The narrowest shape (Cookie, its pinched sides) holds a square 61 % of its size; a little to spare. */
     private const val COVER = 1.75f
 
-    private fun roundedSquare() = Path().apply {
-        val r = SQUARE_CORNER
-        moveTo(50f, 1f)
-        lineTo(99f - r, 1f); arcTo(RectF(99f - 2 * r, 1f, 99f, 1f + 2 * r), -90f, 90f)
-        lineTo(99f, 99f - r); arcTo(RectF(99f - 2 * r, 99f - 2 * r, 99f, 99f), 0f, 90f)
-        lineTo(1f + r, 99f); arcTo(RectF(1f, 99f - 2 * r, 1f + 2 * r, 99f), 90f, 90f)
-        lineTo(1f, 1f + r); arcTo(RectF(1f, 1f, 1f + 2 * r, 1f + 2 * r), 180f, 90f)
-        close()
+    private fun roundedSquare() = PathParser.createPathFromPathData(SQUARE_PATH).apply {
+        transform(Matrix().apply { setScale(98f / 192f, 98f / 192f); postTranslate(1f, 1f) })
     }
 
     private fun cookie() = Path().apply {
