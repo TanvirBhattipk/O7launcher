@@ -46,8 +46,8 @@ object IconShape {
 
     /** One UI 8.5's config_icon_mask (IconFactory.ONE_UI_MASK) redrawn to start at the top and run clockwise. */
     private const val SQUIRCLE_PATH = "M50,1C77.063,1,99,6.935,99,50C99,93.063,77.063,99,50,99C22.935,99,1,93.063,1,50C1,6.935,22.935,1,50,1z"
-    /** Square: custom 192-unit squircle path, rewritten to start at the top and run clockwise; scaled to the 100-unit box (1-unit margin) in [roundedSquare]. */
-    private const val SQUARE_PATH = "M 96 0 H 110.4 C 141.825 0 157.537 0 169.08 7.07327 C 175.539 11.0311 180.969 16.4614 184.927 22.9201 C 192 34.4626 192 50.1751 192 81.6 V 110.4 C 192 141.825 192 157.537 184.927 169.08 C 180.969 175.539 175.539 180.969 169.08 184.927 C 157.537 192 141.825 192 110.4 192 H 81.6 C 50.1751 192 34.4626 192 22.9201 184.927 C 16.4614 180.969 11.0311 175.539 7.07327 169.08 C 0 157.537 0 141.825 0 110.4 V 81.6 C 0 50.1751 0 34.4626 7.07327 22.9201 C 11.0311 16.4614 16.4614 11.0311 22.9201 7.07327 C 34.4626 0 50.1751 0 81.6 0 H 96 Z"
+    /** Square: custom path, already in the 100-unit box (edge to edge), starting at the top and running clockwise. */
+    private const val SQUARE_PATH = "M 50 0 L 57.5 0 C 73.867188 0 82.050781 0 88.0625 3.683594 C 91.425781 5.746094 94.253906 8.574219 96.316406 11.9375 C 100 17.949219 100 26.132812 100 42.5 L 100 57.5 C 100 73.867188 100 82.050781 96.316406 88.0625 C 94.253906 91.425781 91.425781 94.253906 88.0625 96.316406 C 82.050781 100 73.867188 100 57.5 100 L 42.5 100 C 26.132812 100 17.949219 100 11.9375 96.316406 C 8.574219 94.253906 5.746094 91.425781 3.683594 88.0625 C 0 82.050781 0 73.867188 0 57.5 L 0 42.5 C 0 26.132812 0 17.949219 3.683594 11.9375 C 5.746094 8.574219 8.574219 5.746094 11.9375 3.683594 C 17.949219 0 26.132812 0 42.5 0 L 50 0 Z"
     /** Square's corner radius (share of the box), still used by [corner] for rounded-rect stand-ins. */
     private const val SQUARE_CORNER = 23f
     /** Cookie: a superellipse this square, its sides pinched in by this much of its reach. */
@@ -104,9 +104,7 @@ object IconShape {
     /** The narrowest shape (Cookie, its pinched sides) holds a square 61 % of its size; a little to spare. */
     private const val COVER = 1.75f
 
-    private fun roundedSquare() = PathParser.createPathFromPathData(SQUARE_PATH).apply {
-        transform(Matrix().apply { setScale(98f / 192f, 98f / 192f); postTranslate(1f, 1f) })
-    }
+    private fun roundedSquare() = PathParser.createPathFromPathData(SQUARE_PATH)
 
     private fun cookie() = Path().apply {
         val steps = 240
