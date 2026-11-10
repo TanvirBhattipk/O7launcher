@@ -115,7 +115,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
     val scrim = ScrimView(activity)
     val wallpaper = com.oneuiclone.home.ui.WallpaperLayer(activity).apply { drivesLive = true }
     /** Blurred wallpaper behind widgets set to Style › Blur. */
-    private val widgetGlass = com.oneuiclone.home.ui.WidgetGlass().also { g -> wallpaper.onLoaded = { g.rebuild(wallpaper); syncBlurredWallpaper() } }
+    private val widgetGlass = com.oneuiclone.home.ui.WidgetGlass().also { g -> wallpaper.onLoaded = { g.rebuild(wallpaper); syncBlurredWallpaper(); background.set(background.current, background.currentProgress) } }
     val background = BackgroundController(activity, scrim, wallpaper)
     val homeLayer = FrameLayout(activity)
     val appsLayer = FrameLayout(activity)
@@ -325,9 +325,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         prefsSnapshot = snapshot()
         val newDp = DeviceProfile(w, h, activity.resources.displayMetrics.density, insets,
             homeCols = prefs.homeCols, homeRows = prefs.homeRows, appsCols = prefs.appsCols, appsRows = prefs.appsRows,
-            iconScale = prefs.iconScale / 100f, labelScale = prefs.labelScale / 100f,
-            homeTopPadDp = prefs.homeTopPad.toFloat(), homeBottomPadDp = prefs.homeBottomPad.toFloat(),
-            appsTopPadDp = prefs.appsTopPad.toFloat(), appsBottomPadDp = prefs.appsBottomPad.toFloat())
+            iconScale = prefs.iconScale / 100f, labelScale = prefs.labelScale / 100f)
         ripple = com.oneuiclone.home.ui.TouchRipple(newDp.samsungPxScale)
         val iconChanged = !::dp.isInitialized || dp.iconSizePx != newDp.iconSizePx
         dp = newDp
@@ -1404,7 +1402,12 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
 
     /** Home screen apps: every app is on a Home page (the ones not placed yet go to the first free spots, A–Z). */
     private fun fillHome(m: WorkspaceModel, apps: List<AppInfo>) {
-        if (!prefs.homeOnly) return
+        if (!prefs.homeOnly) {
+            // turned off: Home is as it was before every app was put on it
+            if (m.hasBackup() && m.restoreBackup()) m.prune()
+            return
+        }
+        if (!m.hasBackup()) m.backup()
         val onHome = m.items.mapNotNullTo(HashSet()) { (it as? HomeItem.App)?.key }
         val missing = apps.filter { it.key !in onHome }
         if (missing.isEmpty()) return
@@ -2663,6 +2666,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
             configureIcon = { v, a -> setAppsIcon(v, a); v.appInfo = a; attachItem(v, null, a, true) { folderSiblings(v) } },
             sources = searchSources,
             recents = { recentApps.resolve(repo?.apps ?: emptyList()) },
+            contactsEnabled = prefs.searchContacts,
             firstPage = { model?.firstPageApps() ?: emptySet() },
             onOpenIntent = { v, intent ->
                 closeSearch(toHome = false)
