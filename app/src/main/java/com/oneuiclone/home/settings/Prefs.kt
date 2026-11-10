@@ -17,6 +17,8 @@ class Prefs(context: Context) {
     /** 85..115 % (Home Up range); stock small/medium/large = 90/100/110. */
     var iconScale: Int get() = sp.getInt("icon_scale", 100); set(v) = sp.edit().putInt("icon_scale", v).apply()
     /** 70..130 % of the stock app label size (Icons › Label size), on Home, the Apps screen and search. */
+    /** Favorite contacts on the search page. */
+    var searchContacts: Boolean get() = sp.getBoolean("search_contacts", true); set(v) = sp.edit().putBoolean("search_contacts", v).apply()
     /** Home screen apps: no Apps screen; every app is on a Home page. */
     var homeOnly: Boolean get() = sp.getBoolean("home_only", false); set(v) = sp.edit().putBoolean("home_only", v).apply()
     /** Space (dp) above and below the icons of Home and of the Apps screen (Home screen settings). */
