@@ -1,5 +1,6 @@
 package com.oneuiclone.home.icons
 
+import android.content.res.Resources
 import android.graphics.BlendMode
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
@@ -11,6 +12,8 @@ import android.graphics.PointF
 import android.graphics.RectF
 import android.graphics.Shader
 import androidx.core.graphics.PathParser
+import com.oneuiclone.home.R
+import org.xmlpull.v1.XmlPullParser
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -104,7 +107,32 @@ object IconShape {
     /** The narrowest shape (Cookie, its pinched sides) holds a square 61 % of its size; a little to spare. */
     private const val COVER = 1.75f
 
-    private fun roundedSquare() = PathParser.createPathFromPathData(SQUARE_PATH)
+    /** The Square outline, from the vector drawable [R.drawable.icon_shape_square] once [loadVectors] has read it. */
+    @Volatile private var squareData: String? = null
+
+    /** Reads the shapes that live in vector drawables (Prefs calls this before anything draws). Safe to call again. */
+    fun loadVectors(res: Resources) {
+        if (squareData != null) return
+        val data = pathDataOf(res, R.drawable.icon_shape_square) ?: return
+        synchronized(unit) { squareData = data; unit.remove(SQUARE) }
+    }
+
+    /** The first <path>'s android:pathData of a vector drawable, or null if it can't be read. */
+    private fun pathDataOf(res: Resources, id: Int): String? {
+        val p = try { res.getXml(id) } catch (_: Exception) { return null }
+        try {
+            var e = p.eventType
+            while (e != XmlPullParser.END_DOCUMENT) {
+                if (e == XmlPullParser.START_TAG && p.name == "path")
+                    return p.getAttributeValue("http://schemas.android.com/apk/res/android", "pathData")
+                e = p.next()
+            }
+        } catch (_: Exception) {
+        } finally { p.close() }
+        return null
+    }
+
+    private fun roundedSquare() = PathParser.createPathFromPathData(squareData ?: SQUARE_PATH)   // SQUARE_PATH: the same path, if the drawable can't be read
 
     private fun cookie() = Path().apply {
         val steps = 240
