@@ -151,6 +151,9 @@ class SearchColors private constructor(
         private val DAY = SearchColors(0xD9FFFFFF.toInt(), 0x99FFFFFF.toInt(), 0xF2FFFFFF.toInt(), 0x33FFFFFF, 0xFF5C5C61.toInt(), 0xFF1C1C1E.toInt())
         private val NIGHT = SearchColors(0xD92A2A2E.toInt(), 0x992A2A2E.toInt(), 0xF22A2A2E.toInt(), 0x1FFFFFFF, 0xFFA9A9AE.toInt(), 0xFFFAFAFA.toInt())
 
+        /** The dark palette, whatever the theme (the search page is dark in light mode too). */
+        fun dark() = NIGHT
+
         fun of(context: Context) = if ((context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
             Configuration.UI_MODE_NIGHT_YES) NIGHT else DAY
     }

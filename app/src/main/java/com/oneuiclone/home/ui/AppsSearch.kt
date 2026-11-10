@@ -91,6 +91,8 @@ class AppsSearch(
     private val barOpacity: Float = 1f,
     /** The apps opened from search, latest first (shown before anything is typed). */
     private val recents: () -> List<AppInfo> = { emptyList() },
+    /** Settings › Contacts in search: the favorite contacts under the first line. */
+    private val contactsEnabled: Boolean = true,
     private val onClose: () -> Unit,
 ) : FrameLayout(context) {
 
@@ -113,7 +115,7 @@ class AppsSearch(
     private val field = EditText(context)
     private val pill = FrameLayout(context)
     private val pillBg = GradientDrawable()
-    private val colors = SearchColors.of(context)
+    private val colors = SearchColors.dark()
     private val glyph = MagnifierView(context, colors.hint)
     private val results = RecentsRow(context, dp)
     /** "Recents" above the row while nothing is typed. */
@@ -267,7 +269,7 @@ class AppsSearch(
         recentsLabel.apply {
             text = "Recents"
             setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13f)
-            setTextColor(colors.hint)
+            setTextColor(0xFFFFFFFF.toInt())
             typeface = Fonts.ui(context, 500)
         }
         content.addView(recentsLabel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
@@ -398,7 +400,7 @@ class AppsSearch(
         showApps(if (calcResult != null) emptyList() else appsList)
         recentsLabel.visibility = if (field.text.isNullOrBlank() && shownApps.isNotEmpty() && calcResult == null) VISIBLE else GONE
         showCalc()
-        showContacts(favorites, !sources.contactsAllowed, dp.dpi(CHIP_DP))
+        showContacts(if (contactsEnabled) favorites else emptyList(), contactsEnabled && !sources.contactsAllowed, dp.dpi(CHIP_DP))
         line2.visibility = if (contactsBox.visibility == VISIBLE) VISIBLE else GONE
         showWeb(emptyList())                                    // no web results
         updateEnterTarget()
@@ -411,11 +413,11 @@ class AppsSearch(
         val typed = field.text.toString().trim()
         val b = android.text.SpannableStringBuilder()
         b.append("$typed = ")
-        b.setSpan(android.text.style.ForegroundColorSpan(colors.hint), 0, b.length, 0)
+        b.setSpan(android.text.style.ForegroundColorSpan(0xCCFFFFFF.toInt()), 0, b.length, 0)
         b.setSpan(android.text.style.AbsoluteSizeSpan(16, true), 0, b.length, 0)
         val start = b.length
         b.append(r)
-        b.setSpan(android.text.style.ForegroundColorSpan(colors.text), start, b.length, 0)
+        b.setSpan(android.text.style.ForegroundColorSpan(0xFFFFFFFF.toInt()), start, b.length, 0)
         b.setSpan(android.text.style.AbsoluteSizeSpan(24, true), start, b.length, 0)
         b.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), start, b.length, 0)
         calcBox.text = b
@@ -423,6 +425,7 @@ class AppsSearch(
     }
 
     private fun loadFavorites() {
+        if (!contactsEnabled) return
         if (!sources.contactsAllowed) { favorites = emptyList(); render(); return }
         Thread {
             val list = sources.favoriteContacts(4)
@@ -447,6 +450,7 @@ class AppsSearch(
         if (enterTarget is IconView) enterTarget = null      // went with the old row
         list.take(RecentsRow.COLS).forEachIndexed { i, a ->
             val v = results.Icon(context).apply {
+                showLabel = false                                  // no labels in the row
                 label = a.label; contentDescription = a.label
                 setOnClickListener { onLaunch(this, a) }
                 configureIcon(this, a)
@@ -787,10 +791,10 @@ class AppsSearch(
         pill.y = barTop() - dp.dp(BAR_SLIDE_DP) * (1f - f)
         pill.alpha = f.coerceIn(0f, 1f)
         pillBg.cornerRadius = h / 2f
-        pillBg.setColor(withOpacity(o.fill))
-        pillBg.setStroke(dp.dpi(1f), withOpacity(o.stroke))
+        pillBg.setColor(withOpacity(colors.homePill))                // dark in light mode too
+        pillBg.setStroke(dp.dpi(1f), withOpacity(colors.stroke))
         pillGlass = if (o.glass != null) (barGlass ?: o.glass) else null
-        val ink = o.ink ?: colors.hint
+        val ink = colors.hint
         glyph.color = ink
         field.setHintTextColor(ink)
         pill.elevation = 0f
@@ -834,7 +838,7 @@ class AppsSearch(
     fun open(from: Origin, fromAbove: Boolean = false) {
         sources.snapshot.let { scores = it.scores; suggested = it.contacts }
         origin = from
-        field.setTextColor(if (from.ink != null) 0xFFFFFFFF.toInt() else colors.text)   // white on the glass
+        field.setTextColor(colors.text)
         isOpen = true
         openedAt = SystemClock.uptimeMillis()
         loadFavorites()

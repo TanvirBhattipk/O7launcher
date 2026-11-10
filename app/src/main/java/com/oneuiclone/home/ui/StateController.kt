@@ -6,6 +6,7 @@ import android.animation.ValueAnimator
 import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.os.Build
+import android.os.SystemClock
 import android.view.View
 import com.oneuiclone.home.motion.Easing
 import kotlin.math.abs
@@ -39,6 +40,9 @@ class StateController(
     private var f = 0f
     private var toApps = true
     private var dragging = false
+    /** The swipe in hand has begun to show (it wasn't just a quick flick that went nowhere). */
+    private var visible = false
+    private var dragStartMs = 0L
     val isTransitioning get() = anim?.isRunning == true || dragging
 
     private fun prepare() {
@@ -53,9 +57,10 @@ class StateController(
         anim?.cancel()
         toApps = towardApps
         dragging = true
+        visible = false
+        dragStartMs = SystemClock.uptimeMillis()
         f = 0f
         onTransitionStart?.invoke(towardApps)
-        prepare()
     }
 
     /**
@@ -64,6 +69,12 @@ class StateController(
      */
     fun drag(progress: Float, distancePx: Float) {
         f = progress.coerceIn(0f, 1f)
+        if (!visible) {
+            // nothing shows for the first moments of a swipe, so a really quick one that goes nowhere never flashes
+            if (SystemClock.uptimeMillis() - dragStartMs < QUICK_MS && f < COMMIT_AT) return
+            visible = true
+            prepare()
+        }
         val shown = (distancePx / max(1f, apps.height.toFloat())).coerceIn(0f, 1f)
         frame(if (toApps) shown else 1f - shown)
     }
@@ -78,6 +89,7 @@ class StateController(
         // it takes a longer swipe than before and speed doesn't count: a quick flick that goes only a short way falls back
         val commit = f > COMMIT_AT && velocity > -1f
         f = 0f
+        if (!visible && !commit) return                      // nothing was shown: nothing to undo
         run(if (commit) (if (toApps) State.APPS else State.HOME) else state)
     }
 
@@ -193,5 +205,7 @@ class StateController(
         const val OPEN_MS = 420L
         /** How far a swipe has to go (0…1 of its distance, about 185dp) to open or close. */
         const val COMMIT_AT = 0.65f
+        /** A swipe shows nothing until it has lasted this long (ms), unless it is already a long one. */
+        const val QUICK_MS = 120L
     }
 }

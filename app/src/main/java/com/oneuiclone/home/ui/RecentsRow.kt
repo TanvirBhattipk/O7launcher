@@ -9,17 +9,19 @@ import com.oneuiclone.home.device.DeviceProfile
 import kotlin.math.roundToInt
 
 /**
- * The row of apps on the search page: up to [COLS] icons, 20% smaller than Home's, on a subtle rounded panel as wide
- * as the search bar. The same padding all round: the first and last icons are [pad] from the panel's sides, and the
- * icons are [pad] from its top and its bottom.
+ * The row of apps on the search page: up to [COLS] icons on a subtle rounded panel as wide as the search bar, with no
+ * labels. The same padding all round: the first and last icons are [pad] from the panel's sides, and the icons are
+ * [pad] from its top and its bottom. With fewer than [COLS] apps the group is centred. The icons are 20% smaller than
+ * Home's; each sits in a square [hl] bigger than it all round, which is also the highlight of the first result.
  */
 class RecentsRow(context: Context, private val dp: DeviceProfile) : ViewGroup(context) {
 
     val pad = dp.dpi(14f)
+    /** How far the highlight square reaches past the icon. */
+    private val hl = dp.dpi(7f)
     /** The size of an icon in the row (even, so it sits on whole pixels). */
     val iconPx = (dp.iconSizePx * ICON_SCALE).roundToInt().let { if (it % 2 == 1) it + 1 else it }
-    private val metrics = TextPaint().apply { textSize = dp.labelTextSizePx; typeface = Fonts.ui(context, 400) }.fontMetrics
-    private val blockH = (iconPx + dp.iconLabelGapPx + (metrics.descent - metrics.ascent)).roundToInt()
+    private val slot = iconPx + 2 * hl
 
     init {
         clipChildren = false
@@ -37,19 +39,20 @@ class RecentsRow(context: Context, private val dp: DeviceProfile) : ViewGroup(co
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val w = MeasureSpec.getSize(widthMeasureSpec)
-        val slot = step(w)
         for (i in 0 until childCount) {
-            getChildAt(i).measure(MeasureSpec.makeMeasureSpec(slot, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(blockH, MeasureSpec.EXACTLY))
+            getChildAt(i).measure(MeasureSpec.makeMeasureSpec(slot, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(slot, MeasureSpec.EXACTLY))
         }
-        setMeasuredDimension(w, blockH + 2 * pad)
+        setMeasuredDimension(w, iconPx + 2 * pad)
     }
 
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
-        val slot = step(r - l)
+        val w = r - l
+        val step = step(w)
+        val used = iconPx + (childCount - 1).coerceAtLeast(0) * step
+        val start = (w - used) / 2
         for (i in 0 until childCount) {
-            val cx = pad + iconPx / 2f + i * slot
-            val left = (cx - slot / 2f).roundToInt()
-            getChildAt(i).layout(left, pad, left + slot, pad + blockH)
+            val left = start + i * step - hl
+            getChildAt(i).layout(left, pad - hl, left + slot, pad - hl + slot)
         }
     }
 
