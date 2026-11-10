@@ -40,19 +40,21 @@ class DeviceProfile(
 
     /** Where the grid would end with no extra bottom padding: the page indicator and the dock stay under it. */
     private val gridBottom = heightPx - pageBottomPadding - hotseatHeight - indicatorAreaHeight
+    /** A little extra space (dp) kept above and below Home's icon rows, so the 4-column cells are closer to square. */
+    private val HOME_GRID_EXTRA_PAD_DP = 16f
     /** Height of the icon grid (the Home top/bottom padding settings shrink it); its position is solved below. */
-    private val gridHeight = (gridBottom - dpi(homeBottomPadDp)) - (pageTopPadding + dpi(homeTopPadDp))
+    private val gridHeight = (gridBottom - dpi(homeBottomPadDp)) - (pageTopPadding + dpi(homeTopPadDp)) - 2 * dpi(HOME_GRID_EXTRA_PAD_DP)
     val cellWidth = (widthPx - 2 * pageSidePadding) / homeCols
     val cellHeight = gridHeight / homeRows
 
     /** 62.7 % of the cell width (the stock 66 % made 5 % smaller): Home, the dock and the Apps screen all use it. */
     val iconSizePx = (cellWidth * 0.627f * iconScale).roundToInt().coerceAtMost((cellHeight * 0.62f).roundToInt()).let { if (it % 2 == 1) it + 1 else it }
     /**
-     * The icon size of the search page's Recents row: the same 62.7 % of the cell width Home uses now, but fixed, so
+     * The icon size of the search page's Recents row: Home's 62.7 % of the cell width made 5 % smaller, and fixed, so
      * changing Home's icon size (or its icon scale) never changes it.
      */
-    val recentsIconSizePx = (cellWidth * 0.627f).roundToInt().let { if (it % 2 == 1) it + 1 else it }
-    val labelTextSizePx = dp(13f) * labelScale
+    val recentsIconSizePx = (cellWidth * 0.627f * 0.95f).roundToInt().let { if (it % 2 == 1) it + 1 else it }
+    val labelTextSizePx = dp(13f) * 0.95f * labelScale                 // 5 % smaller than the stock 13 dp: Home and the Apps screen
     val iconLabelGapPx = dp(5.5f)
 
     /** The dock stays exactly where the stock layout puts it. */
