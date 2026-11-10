@@ -47,7 +47,7 @@ object IconShape {
     /** One UI 8.5's config_icon_mask (IconFactory.ONE_UI_MASK) redrawn to start at the top and run clockwise. */
     private const val SQUIRCLE_PATH = "M50,1C77.063,1,99,6.935,99,50C99,93.063,77.063,99,50,99C22.935,99,1,93.063,1,50C1,6.935,22.935,1,50,1z"
     /** Square's corner radius, of the 100-unit box. */
-    private const val SQUARE_PATH = "M 0 81.6 C 0 50.1751 0 34.4626 7.07327 22.9201 C 11.0311 16.4614 16.4614 11.0311 22.9201 7.07327 C 34.4626 0 50.1751 0 81.6 0 H 110.4 C 141.825 0 157.537 0 169.08 7.07327 C 175.539 11.0311 180.969 16.4614 184.927 22.9201 C 192 34.4626 192 50.1751 192 81.6 V 110.4 C 192 141.825 192 157.537 184.927 169.08 C 180.969 175.539 175.539 180.969 169.08 184.927 C 157.537 192 141.825 192 110.4 192 H 81.6 C 50.1751 192 34.4626 192 22.9201 184.927 C 16.4614 180.969 11.0311 175.539 7.07327 169.08 C 0 157.537 0 141.825 0 110.4 V 81.6 Z" 
+    private const val SQUARE_CORNER = 23f 
     /** Cookie: a superellipse this square, its sides pinched in by this much of its reach. */
     private const val COOKIE_N = 3.2
     private const val COOKIE_PINCH = 0.11
