@@ -425,7 +425,6 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
 
         val listTop = dp.appsListTop
         appsScroll = com.oneuiclone.home.ui.DrawerScrollView(activity, dp).apply {
-            onPullToClose = { if (state.state == StateController.State.APPS && search == null) state.goTo(StateController.State.HOME) }
             isVerticalScrollBarEnabled = false
             isVerticalFadingEdgeEnabled = true
             setFadingEdgeLength(dp.dpi(24f))
@@ -2542,12 +2541,15 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
     private var vt: VelocityTracker? = null
     /** The touch went down on a widget's list, grid or stack: its vertical swipes scroll it, not Home. */
     private var downOnWidgetScroller = false
+    /** The touch went down while the Apps list was already at its top: a swipe down then drags the Apps screen closed. */
+    private var downAppsAtTop = false
 
     private fun interceptVertical(ev: MotionEvent): Boolean {
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 downX = ev.x; downY = ev.y; tracking = false; consumed = false
                 downOnWidgetScroller = state.state == StateController.State.HOME && widgetScrollerAt(ev.rawX.toInt(), ev.rawY.toInt())
+                downAppsAtTop = state.state == StateController.State.APPS && appsScroll.scrollY <= 0
                 vt?.recycle(); vt = VelocityTracker.obtain(); vt?.addMovement(ev)
             }
             MotionEvent.ACTION_MOVE -> {
@@ -2578,7 +2580,11 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
                     if (state.state == StateController.State.HOME && dy > 0 && prefs.swipeDownNotifications) {
                         expandNotifications(); consumed = true; return true
                     }
-                    // (at the top of the Apps list a pull down stretches it, and a quick swipe closes it: DrawerScrollView)
+                    // a swipe down that starts at the top of the Apps list drags the Apps screen closed, following the finger
+                    if (state.state == StateController.State.APPS && dy > 0 && downAppsAtTop) {
+                        startTracking(false)
+                        return true
+                    }
                 }
             }
             MotionEvent.ACTION_POINTER_DOWN -> if (ev.pointerCount == 2) pinchStart = spread(ev)
@@ -2814,6 +2820,8 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         }
     }
 
+    private val CLOSE_REACH = 0.6f
+
     private fun startTracking(toApps: Boolean) {
         tracking = true
         trackToApps = toApps
@@ -2825,13 +2833,18 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         when (ev.actionMasked) {
             MotionEvent.ACTION_MOVE -> if (tracking) {
                 val d = if (trackToApps) downY - ev.y else ev.y - downY
-                state.drag(d / dp.swipeProgressDistance, d.coerceAtLeast(0f))
+                // closing the Apps screen needs a shorter swipe than opening it (the screen still follows the finger 1:1)
+                val reach = if (trackToApps) dp.swipeProgressDistance else dp.swipeProgressDistance * CLOSE_REACH
+                state.drag(d / reach, d.coerceAtLeast(0f))
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (tracking) {
                     vt?.computeCurrentVelocity(1)
                     val vy = vt?.yVelocity ?: 0f
                     val toward = if (trackToApps) -vy else vy
+                    // a quick flick down on the Apps screen closes it even when it went only a short way
+                    if (!trackToApps && ev.actionMasked == MotionEvent.ACTION_UP && vy > dp.dp(1f) && ev.y - downY > dp.dp(16f))
+                        state.drag(1f, (ev.y - downY).coerceAtLeast(0f))
                     state.release(if (ev.actionMasked == MotionEvent.ACTION_CANCEL) -2f else toward / dp.samsungPxScale)
                 }
                 tracking = false; consumed = false
