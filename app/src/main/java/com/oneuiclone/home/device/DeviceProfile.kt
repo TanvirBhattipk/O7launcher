@@ -50,11 +50,13 @@ class DeviceProfile(
     val cellHeight = workspaceGrid.height() / homeRows
 
     val indicatorRect = Rect(0, gridBottom, widthPx, gridBottom + indicatorAreaHeight)
+    /** The dock sits this much lower than the stock layout, so the Search pill has the same gap above and below it. */
+    private val dockDrop = dpi(12f)
     val hotseatRect = Rect(
         pageSidePadding,                                             // the dock's icons sit in the same columns as Home's (stock: 0.036 of the width)
-        indicatorRect.bottom,
+        indicatorRect.bottom + dockDrop,
         widthPx - pageSidePadding,
-        indicatorRect.bottom + hotseatHeight,
+        indicatorRect.bottom + dockDrop + hotseatHeight,
     )
 
     /** 66 % of the cell width (= 15.25 % of the screen at 4 columns, matching One UI screenshots). */
