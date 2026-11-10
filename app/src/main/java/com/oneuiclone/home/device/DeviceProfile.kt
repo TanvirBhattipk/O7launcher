@@ -45,8 +45,8 @@ class DeviceProfile(
     val cellWidth = (widthPx - 2 * pageSidePadding) / homeCols
     val cellHeight = gridHeight / homeRows
 
-    /** 66 % of the cell width (= 15.25 % of the screen at 4 columns, matching One UI screenshots). */
-    val iconSizePx = (cellWidth * 0.66f * iconScale).roundToInt().coerceAtMost((cellHeight * 0.62f).roundToInt()).let { if (it % 2 == 1) it + 1 else it }
+    /** 59.4 % of the cell width (the stock 66 % made 10 % smaller): Home, the dock and the Apps screen all use it. */
+    val iconSizePx = (cellWidth * 0.594f * iconScale).roundToInt().coerceAtMost((cellHeight * 0.62f).roundToInt()).let { if (it % 2 == 1) it + 1 else it }
     val labelTextSizePx = dp(13f) * labelScale
     val iconLabelGapPx = dp(5.5f)
 
