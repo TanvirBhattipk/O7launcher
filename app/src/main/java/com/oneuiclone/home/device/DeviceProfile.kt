@@ -40,29 +40,55 @@ class DeviceProfile(
 
     /** Where the grid would end with no extra bottom padding: the page indicator and the dock stay under it. */
     private val gridBottom = heightPx - pageBottomPadding - hotseatHeight - indicatorAreaHeight
-    val workspaceGrid: Rect = Rect(
-        pageSidePadding,
-        pageTopPadding + dpi(homeTopPadDp),
-        widthPx - pageSidePadding,
-        gridBottom - dpi(homeBottomPadDp),
-    )
-    val cellWidth = workspaceGrid.width() / homeCols
-    val cellHeight = workspaceGrid.height() / homeRows
-
-    val indicatorRect = Rect(0, gridBottom, widthPx, gridBottom + indicatorAreaHeight)
-    /** The dock sits this much lower than the stock layout, so the Search pill has the same gap above and below it. */
-    private val dockDrop = dpi(12f)
-    val hotseatRect = Rect(
-        pageSidePadding,                                             // the dock's icons sit in the same columns as Home's (stock: 0.036 of the width)
-        indicatorRect.bottom + dockDrop,
-        widthPx - pageSidePadding,
-        indicatorRect.bottom + dockDrop + hotseatHeight,
-    )
+    /** Height of the icon grid (the Home top/bottom padding settings shrink it); its position is solved below. */
+    private val gridHeight = (gridBottom - dpi(homeBottomPadDp)) - (pageTopPadding + dpi(homeTopPadDp))
+    val cellWidth = (widthPx - 2 * pageSidePadding) / homeCols
+    val cellHeight = gridHeight / homeRows
 
     /** 66 % of the cell width (= 15.25 % of the screen at 4 columns, matching One UI screenshots). */
     val iconSizePx = (cellWidth * 0.66f * iconScale).roundToInt().coerceAtMost((cellHeight * 0.62f).roundToInt()).let { if (it % 2 == 1) it + 1 else it }
     val labelTextSizePx = dp(13f) * labelScale
     val iconLabelGapPx = dp(5.5f)
+
+    /** The dock stays exactly where the stock layout puts it. */
+    private val dockDrop = dpi(12f)
+    private val hotseatTop = gridBottom + indicatorAreaHeight + dockDrop
+    val hotseatRect = Rect(
+        pageSidePadding,                                             // the dock's icons sit in the same columns as Home's (stock: 0.036 of the width)
+        hotseatTop,
+        widthPx - pageSidePadding,
+        hotseatTop + hotseatHeight,
+    )
+
+    // ---- even vertical spacing ----
+    // Three gaps are made equal: status bar -> first icon row, last row's label -> Search pill, Search pill -> dock icons.
+    /** HomeSearchButton.pillHeight. */
+    private val searchPillHeight = dpi(32f)
+    /** An icon + gap + label block as IconView draws it (label height ~ 1.17 x its text size), centred in its cell. */
+    private val iconBlockHeight = iconSizePx + iconLabelGapPx + labelTextSizePx * 1.17f
+    private val iconBlockOffset = (cellHeight - iconBlockHeight) / 2f
+    /** From the grid's top to the bottom of the last row's label. */
+    private val lastLabelBottomInGrid = (homeRows - 1) * cellHeight + iconBlockOffset + iconBlockHeight
+    /** The dock icons are centred in their cell (no labels). */
+    private val dockIconTop = hotseatTop + (hotseatHeight - iconSizePx) / 2f
+    /**
+     * Grid top G with  (G + offset - statusBar) = (dockIconTop - (G + lastLabelBottom) - pill) / 2  — the status-bar gap
+     * equals each Search-pill gap. The Home top padding setting still moves the grid down from there.
+     */
+    private val gridTop = (((dockIconTop - lastLabelBottomInGrid - searchPillHeight - 2f * iconBlockOffset + 2f * insets.top) / 3f)
+        .coerceAtLeast(insets.top.toFloat())).roundToInt() + dpi(homeTopPadDp)
+    val workspaceGrid: Rect = Rect(
+        pageSidePadding,
+        gridTop,
+        widthPx - pageSidePadding,
+        gridTop + gridHeight,
+    )
+
+    /** The Search pill (and the page dots beside it) centred between the last row's label and the dock icons. */
+    private val pillTop = workspaceGrid.top + lastLabelBottomInGrid +
+        (dockIconTop - (workspaceGrid.top + lastLabelBottomInGrid) - searchPillHeight) / 2f
+    private val indicatorTop = (pillTop + searchPillHeight / 2f - indicatorAreaHeight / 2f).roundToInt()
+    val indicatorRect = Rect(0, indicatorTop, widthPx, indicatorTop + indicatorAreaHeight)
 
     // ---- page indicator (page_indicator_dot_size_sw_ratio = slot width) ----
     val indicatorSlotPx = (minOf(widthPx, heightPx) * 0.047f)
