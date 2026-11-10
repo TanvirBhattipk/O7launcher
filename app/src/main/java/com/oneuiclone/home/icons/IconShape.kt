@@ -47,13 +47,15 @@ object IconShape {
     /** One UI 8.5's config_icon_mask (IconFactory.ONE_UI_MASK) redrawn to start at the top and run clockwise. */
     private const val SQUIRCLE_PATH = "M50,1C77.063,1,99,6.935,99,50C99,93.063,77.063,99,50,99C22.935,99,1,93.063,1,50C1,6.935,22.935,1,50,1z"
     /**
-     * Square: the iOS icon superellipse, |x/a|^n + |y/a|^n = 1 with n = 5 — a continuous-curvature squircle (the
-     * curvature eases in and out along the whole corner, with no seam where a straight side meets a round corner,
-     * unlike a rounded rectangle). A bigger n squares it up, a smaller one rounds it.
+     * Square: the iOS app-icon shape, with its continuous (smooth) corners — the curvature eases in and out along the
+     * whole corner instead of jumping where a straight side meets a round arc. Measured from the reference image
+     * (a 300 px icon, averaged over its eightfold symmetry): the reach from the centre, in the 100-unit box, at each
+     * whole degree from 0 (middle of a side, 50) to 45 (the corner's diagonal, 61.45).
      */
-    private const val SQUARE_N = 5.0
-    /** Its reach from the centre, of the 100-unit box (50 = edge to edge). */
-    private const val SQUARE_REACH = 50.0
+    private val SQUARE_REACH = floatArrayOf(
+        50.000f, 50.008f, 50.030f, 50.069f, 50.122f, 50.191f, 50.275f, 50.375f, 50.491f, 50.623f, 50.771f, 50.936f, 51.117f, 51.315f, 51.531f, 51.764f, 52.015f, 52.285f, 52.574f, 52.881f, 53.209f, 53.557f, 53.927f, 54.319f, 54.730f,
+        55.147f, 55.567f, 55.989f, 56.425f, 56.877f, 57.369f, 57.842f, 58.269f, 58.716f, 59.133f, 59.535f, 59.920f, 60.264f, 60.543f, 60.781f, 60.984f, 61.148f, 61.275f, 61.361f, 61.414f, 61.450f
+    )
     /** Square's corner size (share of the box) for the rounded-rect stand-ins in [corner]: iOS's 22.37 %. */
     private const val SQUARE_CORNER = 22.37f
     /** Cookie: a superellipse this square, its sides pinched in by this much of its reach. */
@@ -110,14 +112,15 @@ object IconShape {
     /** The narrowest shape (Cookie, its pinched sides) holds a square 61 % of its size; a little to spare. */
     private const val COVER = 1.75f
 
-    /** The iOS superellipse, from the top and clockwise: r(t) = reach * (|cos t|^n + |sin t|^n)^(-1/n). */
+    /** The Square outline: [SQUARE_REACH] at every degree (mirrored into all eight parts), from the top and clockwise. */
     private fun roundedSquare() = Path().apply {
-        val steps = 360
-        for (i in 0..steps) {
-            val t = -PI / 2 + i * 2 * PI / steps
-            val r = SQUARE_REACH * (abs(cos(t)).pow(SQUARE_N) + abs(sin(t)).pow(SQUARE_N)).pow(-1 / SQUARE_N)
-            val x = (50 + r * cos(t)).toFloat(); val y = (50 + r * sin(t)).toFloat()
-            if (i == 0) moveTo(x, y) else lineTo(x, y)
+        for (deg in 0..360) {
+            val into = deg % 90                                  // degrees since the last side's middle
+            val k = minOf(into, 90 - into)                       // 0..45: how far round the corner this is
+            val r = SQUARE_REACH[k]
+            val a = Math.toRadians(deg.toDouble())
+            val x = (50 + r * sin(a)).toFloat(); val y = (50 - r * cos(a)).toFloat()
+            if (deg == 0) moveTo(x, y) else lineTo(x, y)
         }
         close()
     }
