@@ -1,6 +1,5 @@
 package com.oneuiclone.home.icons
 
-import android.content.res.Resources
 import android.graphics.BlendMode
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
@@ -12,8 +11,6 @@ import android.graphics.PointF
 import android.graphics.RectF
 import android.graphics.Shader
 import androidx.core.graphics.PathParser
-import com.oneuiclone.home.R
-import org.xmlpull.v1.XmlPullParser
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -49,14 +46,16 @@ object IconShape {
 
     /** One UI 8.5's config_icon_mask (IconFactory.ONE_UI_MASK) redrawn to start at the top and run clockwise. */
     private const val SQUIRCLE_PATH = "M50,1C77.063,1,99,6.935,99,50C99,93.063,77.063,99,50,99C22.935,99,1,93.063,1,50C1,6.935,22.935,1,50,1z"
-    /** Square: custom path, used exactly as given (100-unit box, edge to edge). */
-    private const val SQUARE_PATH = "M 0 42.5 C 0 26.132812 0 17.949219 3.683594 11.9375 C 5.746094 8.574219 8.574219 5.746094 11.9375 3.683594 C 17.949219 0 26.132812 0 42.5 0 L 57.5 0 C 73.867188 0 82.050781 0 88.0625 3.683594 C 91.425781 5.746094 94.253906 8.574219 96.316406 11.9375 C 100 17.949219 100 26.132812 100 42.5 L 100 57.5 C 100 73.867188 100 82.050781 96.316406 88.0625 C 94.253906 91.425781 91.425781 94.253906 88.0625 96.316406 C 82.050781 100 73.867188 100 57.5 100 L 42.5 100 C 26.132812 100 17.949219 100 11.9375 96.316406 C 8.574219 94.253906 5.746094 91.425781 3.683594 88.0625 C 0 82.050781 0 73.867188 0 57.5 Z M 0 42.5 "
     /**
-     * Square's rounded-rectangle fallback radius. The supplied Bézier path reaches 42.5 units
-     * from each edge before its straight sections begin, so use the same normalized reach
-     * when a caller needs a rounded-rectangle approximation instead of the exact Path.
+     * Square: the iOS icon superellipse, |x/a|^n + |y/a|^n = 1 with n = 5 — a continuous-curvature squircle (the
+     * curvature eases in and out along the whole corner, with no seam where a straight side meets a round corner,
+     * unlike a rounded rectangle). A bigger n squares it up, a smaller one rounds it.
      */
-    private const val SQUARE_CORNER = 42.5f
+    private const val SQUARE_N = 5.0
+    /** Its reach from the centre, of the 100-unit box (50 = edge to edge). */
+    private const val SQUARE_REACH = 50.0
+    /** Square's corner size (share of the box) for the rounded-rect stand-ins in [corner]: iOS's 22.37 %. */
+    private const val SQUARE_CORNER = 22.37f
     /** Cookie: a superellipse this square, its sides pinched in by this much of its reach. */
     private const val COOKIE_N = 3.2
     private const val COOKIE_PINCH = 0.11
@@ -111,32 +110,17 @@ object IconShape {
     /** The narrowest shape (Cookie, its pinched sides) holds a square 61 % of its size; a little to spare. */
     private const val COVER = 1.75f
 
-    /** The Square outline, from the vector drawable [R.drawable.icon_shape_square] once [loadVectors] has read it. */
-    @Volatile private var squareData: String? = null
-
-    /** Reads the shapes that live in vector drawables (Prefs calls this before anything draws). Safe to call again. */
-    fun loadVectors(res: Resources) {
-        if (squareData != null) return
-        val data = pathDataOf(res, R.drawable.icon_shape_square) ?: return
-        synchronized(unit) { squareData = data; unit.remove(SQUARE) }
+    /** The iOS superellipse, from the top and clockwise: r(t) = reach * (|cos t|^n + |sin t|^n)^(-1/n). */
+    private fun roundedSquare() = Path().apply {
+        val steps = 360
+        for (i in 0..steps) {
+            val t = -PI / 2 + i * 2 * PI / steps
+            val r = SQUARE_REACH * (abs(cos(t)).pow(SQUARE_N) + abs(sin(t)).pow(SQUARE_N)).pow(-1 / SQUARE_N)
+            val x = (50 + r * cos(t)).toFloat(); val y = (50 + r * sin(t)).toFloat()
+            if (i == 0) moveTo(x, y) else lineTo(x, y)
+        }
+        close()
     }
-
-    /** The first <path>'s android:pathData of a vector drawable, or null if it can't be read. */
-    private fun pathDataOf(res: Resources, id: Int): String? {
-        val p = try { res.getXml(id) } catch (_: Exception) { return null }
-        try {
-            var e = p.eventType
-            while (e != XmlPullParser.END_DOCUMENT) {
-                if (e == XmlPullParser.START_TAG && p.name == "path")
-                    return p.getAttributeValue("http://schemas.android.com/apk/res/android", "pathData")
-                e = p.next()
-            }
-        } catch (_: Exception) {
-        } finally { p.close() }
-        return null
-    }
-
-    private fun roundedSquare() = PathParser.createPathFromPathData(squareData ?: SQUARE_PATH)   // SQUARE_PATH: the same path, if the drawable can't be read
 
     private fun cookie() = Path().apply {
         val steps = 240
