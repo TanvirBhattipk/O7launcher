@@ -70,6 +70,23 @@ class WorkspaceModel(private val context: Context, private val repo: AppReposito
 
     fun newId() = nextId++
 
+    private val backupFile = File(context.filesDir, "workspace_before_home_apps.json")
+    fun hasBackup() = backupFile.exists()
+
+    /** Keeps the layout as it is now (before Home screen apps puts every app on Home). */
+    fun backup() {
+        save()
+        if (file.exists()) file.copyTo(backupFile, overwrite = true)
+    }
+
+    /** Puts back the layout [backup] kept; false when there is none. */
+    fun restoreBackup(): Boolean {
+        if (!backupFile.exists()) return false
+        backupFile.copyTo(file, overwrite = true)
+        backupFile.delete()
+        return load()
+    }
+
     fun appsInFolder(folderId: Long): List<HomeItem.App> =
         items.filterIsInstance<HomeItem.App>().filter { it.container == Container.FOLDER && it.folderId == folderId }.sortedBy { it.rank }
 
