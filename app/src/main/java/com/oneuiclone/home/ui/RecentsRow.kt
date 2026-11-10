@@ -10,14 +10,14 @@ import com.oneuiclone.home.device.DeviceProfile
 /**
  * The row of apps on the search page: up to [COLS] icons on a subtle rounded panel as wide as the search bar, with no
  * labels. The same padding all round: the first and last icons are [pad] from the panel's sides, and the icons are
- * [padV] from its top and its bottom (taller than the sides). With fewer than [COLS] apps the group is centred. The
+ * [padV] (the same) from its top and its bottom. With fewer than [COLS] apps the group is centred. The
  * icons are Home's size but fixed ([DeviceProfile.recentsIconSizePx]); each sits in a square [hl] bigger than it all round, which is also the highlight of the first result.
  */
 class RecentsRow(context: Context, private val dp: DeviceProfile) : ViewGroup(context) {
 
-    val pad = dp.dpi(14f)
-    /** Space above and below the icons: the panel is taller than the sides' padding alone would make it. */
-    private val padV = dp.dpi(22f)
+    /** The same space on all four sides: the first and last icons are this far from the panel's sides, and the icons from its top and bottom. */
+    val pad = dp.dpi(22f)
+    private val padV = pad
     /** How far the highlight square reaches past the icon. */
     private val hl = dp.dpi(7f)
     /** The size of an icon in the row (even, so it sits on whole pixels). */
