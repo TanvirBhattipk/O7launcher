@@ -8,10 +8,7 @@ class Prefs(context: Context) {
     val sp: SharedPreferences = context.getSharedPreferences("home_settings", Context.MODE_PRIVATE)
 
     // whatever reads the settings first (Home, a widget, a settings page) sets the icon shape for this process
-    init {
-        com.oneuiclone.home.icons.IconShape.loadVectors(context.resources)
-        com.oneuiclone.home.icons.IconShape.current = iconShape
-    }
+    init { com.oneuiclone.home.icons.IconShape.current = iconShape }
 
     var homeCols: Int get() = sp.getInt("home_cols", 4); set(v) = sp.edit().putInt("home_cols", v).apply()
     var homeRows: Int get() = sp.getInt("home_rows", 6); set(v) = sp.edit().putInt("home_rows", v).apply()
