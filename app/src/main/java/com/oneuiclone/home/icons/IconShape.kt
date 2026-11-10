@@ -47,15 +47,11 @@ object IconShape {
     /** One UI 8.5's config_icon_mask (IconFactory.ONE_UI_MASK) redrawn to start at the top and run clockwise. */
     private const val SQUIRCLE_PATH = "M50,1C77.063,1,99,6.935,99,50C99,93.063,77.063,99,50,99C22.935,99,1,93.063,1,50C1,6.935,22.935,1,50,1z"
     /**
-     * Square: the iOS app-icon shape, with its continuous (smooth) corners — the curvature eases in and out along the
-     * whole corner instead of jumping where a straight side meets a round arc. Measured from the reference image
-     * (a 300 px icon, averaged over its eightfold symmetry): the reach from the centre, in the 100-unit box, at each
-     * whole degree from 0 (middle of a side, 50) to 45 (the corner's diagonal, 61.45).
+     * Square: the iOS app-icon shape with continuous (smooth) corners, exactly as drawn in the reference SVG
+     * (116621.svg: viewBox 0 0 100 100, edge to edge). Each corner is three cubic Béziers that ease the curvature in
+     * and out over 42.5 units of the side, with only a short straight run (42.5 to 57.5) between them.
      */
-    private val SQUARE_REACH = floatArrayOf(
-        50.000f, 50.008f, 50.030f, 50.069f, 50.122f, 50.191f, 50.275f, 50.375f, 50.491f, 50.623f, 50.771f, 50.936f, 51.117f, 51.315f, 51.531f, 51.764f, 52.015f, 52.285f, 52.574f, 52.881f, 53.209f, 53.557f, 53.927f, 54.319f, 54.730f,
-        55.147f, 55.567f, 55.989f, 56.425f, 56.877f, 57.369f, 57.842f, 58.269f, 58.716f, 59.133f, 59.535f, 59.920f, 60.264f, 60.543f, 60.781f, 60.984f, 61.148f, 61.275f, 61.361f, 61.414f, 61.450f
-    )
+    private const val SQUARE_PATH = "M 0 42.5 C 0 26.132812 0 17.949219 3.683594 11.9375 C 5.746094 8.574219 8.574219 5.746094 11.9375 3.683594 C 17.949219 0 26.132812 0 42.5 0 L 57.5 0 C 73.867188 0 82.050781 0 88.0625 3.683594 C 91.425781 5.746094 94.253906 8.574219 96.316406 11.9375 C 100 17.949219 100 26.132812 100 42.5 L 100 57.5 C 100 73.867188 100 82.050781 96.316406 88.0625 C 94.253906 91.425781 91.425781 94.253906 88.0625 96.316406 C 82.050781 100 73.867188 100 57.5 100 L 42.5 100 C 26.132812 100 17.949219 100 11.9375 96.316406 C 8.574219 94.253906 5.746094 91.425781 3.683594 88.0625 C 0 82.050781 0 73.867188 0 57.5 Z M 0 42.5 "
     /** Square's corner size (share of the box) for the rounded-rect stand-ins in [corner]: iOS's 22.37 %. */
     private const val SQUARE_CORNER = 22.37f
     /** Cookie: a superellipse this square, its sides pinched in by this much of its reach. */
@@ -112,18 +108,7 @@ object IconShape {
     /** The narrowest shape (Cookie, its pinched sides) holds a square 61 % of its size; a little to spare. */
     private const val COVER = 1.75f
 
-    /** The Square outline: [SQUARE_REACH] at every degree (mirrored into all eight parts), from the top and clockwise. */
-    private fun roundedSquare() = Path().apply {
-        for (deg in 0..360) {
-            val into = deg % 90                                  // degrees since the last side's middle
-            val k = minOf(into, 90 - into)                       // 0..45: how far round the corner this is
-            val r = SQUARE_REACH[k]
-            val a = Math.toRadians(deg.toDouble())
-            val x = (50 + r * sin(a)).toFloat(); val y = (50 - r * cos(a)).toFloat()
-            if (deg == 0) moveTo(x, y) else lineTo(x, y)
-        }
-        close()
-    }
+    private fun roundedSquare() = PathParser.createPathFromPathData(SQUARE_PATH)
 
     private fun cookie() = Path().apply {
         val steps = 240
