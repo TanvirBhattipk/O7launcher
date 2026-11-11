@@ -45,6 +45,10 @@ class DragController(
     private val findItemView: (HomeItem) -> View? = { findViewFor(it) },
     /** An app rested on a folder: open it around the drag (with an empty cell for the app), or null if it can't. */
     private val openFolderForDrop: (FolderIconView, HomeItem.Folder, AppInfo, HomeItem.App) -> FolderDrag? = { _, _, _, _ -> null },
+    /** Classic Home (every app is on Home): apps can't be dragged off it to be removed. */
+    private val homeOnly: () -> Boolean = { false },
+    /** Classic Home: called after a drop, before it is saved, so the icons close ranks and every app is still on Home. */
+    private val tidyHome: (WorkspaceModel) -> Unit = {},
 ) {
     companion object {
         /** Hover this long over an occupied spot before the items there move aside (Launcher3 REORDER_TIMEOUT-ish). */
@@ -158,7 +162,7 @@ class DragController(
             }
         })
 
-        if (item != null && !fromApps) {
+        if (item != null && !fromApps && !(homeOnly() && item is HomeItem.App)) {      // (Classic: apps stay on Home)
             val rb = RemoveBar(context, dp)
             overlay.addView(rb, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, rb.barHeight))
             rb.alpha = 0f
@@ -596,6 +600,7 @@ class DragController(
             m.items.remove(item)
             if (item is HomeItem.Folder) m.items.removeAll { it is HomeItem.App && it.folderId == item!!.id }
             if (fromFolder >= 0) dissolveIfNeeded(m, fromFolder)
+            tidyHome(m)
             m.save()
             dv.animate().scaleX(0f).scaleY(0f).alpha(0f).setDuration(200).withEndAction { overlay.removeView(dv) }.start()
             dragView = null
@@ -610,6 +615,7 @@ class DragController(
         val dropped = lastPlaced
         lastPlaced = null
         if (fromFolder >= 0) dissolveIfNeeded(m, fromFolder)
+        tidyHome(m)
         m.save()
         rebind()
         if (t?.mergeWith != null && placed is HomeItem.Folder) {
@@ -685,6 +691,7 @@ class DragController(
         dragged.container = Container.FOLDER; dragged.folderId = folder.id
         apps.forEachIndexed { i, a -> a.rank = i }
         if (fromFolder >= 0 && fromFolder != folder.id) dissolveIfNeeded(m, fromFolder)
+        tidyHome(m)
         m.save()
         rebind()
     }
