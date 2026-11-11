@@ -194,6 +194,8 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
     val drag = com.oneuiclone.home.ui.DragController(
         activity, overlay, { dp }, { model }, { workspace }, { hotseat }, background,
         { bindWorkspace() }, { findView(it) }, { widgets.delete(it.appWidgetId) }, { findItemView(it) },
+        homeOnly = { prefs.homeOnly },
+        tidyHome = { m -> if (prefs.homeOnly) repo?.let { fillHome(m, it.apps) } },
         openFolderForDrop = { view, folder, app, dragged ->
             val m = model; val r = repo
             if (m == null || r == null) null else {
@@ -1166,18 +1168,20 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
     }
 
     @android.annotation.SuppressLint("ClickableViewAccessibility")
-    private fun attachRipple(v: View, siblings: () -> List<View>) = attachItem(v as IconView, null, null, false, siblings)
+    private fun attachRipple(v: View, siblings: () -> List<View>) = attachItem(v as IconView, null, null, false, siblings = siblings)
 
     /**
      * Touch handling shared by every icon: 8.5 ripple on press, long-press → quick options, then drag once
      * the finger moves past the touch slop (popup dismisses, One UI behaviour).
      */
     @android.annotation.SuppressLint("ClickableViewAccessibility")
-    private fun attachItem(v: IconView, item: HomeItem?, app: AppInfo?, fromApps: Boolean, siblings: () -> List<View>) {
+    private fun attachItem(v: IconView, item: HomeItem?, app: AppInfo?, fromApps: Boolean, forFolder: Boolean = false, siblings: () -> List<View>) {
+        // Classic Home: every app is on Home already, so an app from the Apps screen can't be dragged onto it
+        val noDragToHome = fromApps && !forFolder && prefs.homeOnly
         v.setOnLongClickListener {
             ripple.reverse()
             v.parent?.requestDisallowInterceptTouchEvent(true)
-            showQuickOptions(v, item, app, fromApps)
+            showQuickOptions(v, item, app, fromApps, forFolder)
             dragArmed = v
             true
         }
@@ -1190,7 +1194,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (drag.isDragging) { drag.move(ev.rawX, ev.rawY); return@setOnTouchListener true }
-                    if (dragArmed === v && !(prefs.lockLayout && !fromApps) && kotlin.math.hypot(ev.rawX - armX, ev.rawY - armY) > slop) {
+                    if (dragArmed === v && !noDragToHome && !(prefs.lockLayout && !fromApps) && kotlin.math.hypot(ev.rawX - armX, ev.rawY - armY) > slop) {
                         popup?.dismiss()
                         ripple.reset()                           // neighbours may slide aside to make room
                         if (fromApps) state.setImmediate(StateController.State.HOME)
@@ -1212,14 +1216,14 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         }
     }
 
-    private fun showQuickOptions(v: IconView, item: HomeItem?, app: AppInfo?, fromApps: Boolean) {
+    private fun showQuickOptions(v: IconView, item: HomeItem?, app: AppInfo?, fromApps: Boolean, forFolder: Boolean = false) {
         popup?.dismiss()
         val m = model ?: return
         val opts = ArrayList<com.oneuiclone.home.ui.QuickOption>()
         // (a folder's row is full with its own options, and Select does nothing yet)
         if (item !is HomeItem.Folder || fromApps) opts += com.oneuiclone.home.ui.QuickOption("Select", com.oneuiclone.home.ui.QuickOption.SELECT) {}
         if (fromApps && app != null) {
-            opts += com.oneuiclone.home.ui.QuickOption("Add to Home", com.oneuiclone.home.ui.QuickOption.ADD) { addToHome(app) }
+            if (forFolder || !prefs.homeOnly) opts += com.oneuiclone.home.ui.QuickOption("Add to Home", com.oneuiclone.home.ui.QuickOption.ADD) { addToHome(app) }
         } else if (item != null && !prefs.lockLayout && (!prefs.homeOnly || item is HomeItem.Folder)) {
             opts += com.oneuiclone.home.ui.QuickOption("Remove", com.oneuiclone.home.ui.QuickOption.REMOVE) {
                 m.items.remove(item)
@@ -1409,9 +1413,10 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         if (!m.hasBackup()) m.backup()
         val onHome = m.items.mapNotNullTo(HashSet()) { (it as? HomeItem.App)?.key }
         val missing = apps.filter { it.key !in onHome }
-        if (missing.isEmpty()) return
         missing.forEach { addToHome(it, rebind = false, save = false) }
-        m.save()
+        // the icons close ranks: a cell left empty (an icon moved or removed) is taken by the next icon
+        val moved = m.compactHome(dp.homeCols, dp.homeRows)
+        if (missing.isNotEmpty() || moved) m.save()
     }
 
     /** Icons › Apply to Apps screen and search: there (and in the Bubble and Split panels) apps get Home's icons, not their own. */
@@ -2669,7 +2674,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         lateinit var s: com.oneuiclone.home.ui.AppsSearch
         s = com.oneuiclone.home.ui.AppsSearch(activity, dp, { repo?.apps ?: emptyList() },
             onLaunch = { v, a -> recentApps.add(a.key); closeSearch(toHome = false); launch(v, a) },
-            configureIcon = { v, a -> setAppsIcon(v, a); v.appInfo = a; attachItem(v, null, a, true) { folderSiblings(v) } },
+            configureIcon = { v, a -> setAppsIcon(v, a); v.appInfo = a; attachItem(v, null, a, true, forFolder = true) { folderSiblings(v) } },
             sources = searchSources,
             recents = { recentApps.resolve(repo?.apps ?: emptyList()) },
             contactsEnabled = prefs.searchContacts,
