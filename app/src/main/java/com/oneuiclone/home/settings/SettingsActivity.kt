@@ -111,6 +111,7 @@ class SettingsActivity : OneUiPage() {
             item("Home screen grid", "${prefs.homeCols}×${prefs.homeRows}") {
                 choose("Home screen grid", listOf(4 to 5, 4 to 6, 4 to 7, 5 to 5, 5 to 6)) { (c, r) -> prefs.homeCols = c; prefs.homeRows = r }
             }
+            toggle("Fill empty cells", "Icons close the gap an icon leaves, and slide along when you drop one between them", prefs.fillEmptyCells) { prefs.fillEmptyCells = it }
             item("Apps screen grid", "${prefs.appsCols}×${prefs.appsRows}") {
                 choose("Apps screen grid", listOf(4 to 5, 4 to 6, 4 to 7, 5 to 5, 5 to 6)) { (c, r) -> prefs.appsCols = c; prefs.appsRows = r }
             }
