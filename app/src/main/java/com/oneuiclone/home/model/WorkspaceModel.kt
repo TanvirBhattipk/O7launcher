@@ -106,12 +106,13 @@ class WorkspaceModel(private val context: Context, private val repo: AppReposito
      * Classic Home: the icons (apps and small folders) close ranks. Taken in their order on Home (page, row, column),
      * they are laid back down row by row from the first page, so a cell left empty is taken by the next icon, spilling
      * onto the next page. Widgets and enlarged folders keep their places (the icons flow around them), and the dock
-     * is left alone. Pages that this emptied, at the end, go. True when anything moved.
+     * is left alone. Pages that this emptied, at the end, go. True when anything moved. [first] is an icon just dropped
+     * onto a cell: it goes in ahead of the icon that was there, which (with the ones after it) slides along.
      */
-    fun compactHome(cols: Int, rows: Int): Boolean {
+    fun compactHome(cols: Int, rows: Int, first: HomeItem? = null): Boolean {
         val fixed = items.filter { it.container == Container.WORKSPACE && !(it is HomeItem.App || (it is HomeItem.Folder && !it.large)) }
         val icons = items.filter { it.container == Container.WORKSPACE && (it is HomeItem.App || (it is HomeItem.Folder && !it.large)) }
-            .sortedWith(compareBy({ it.screen }, { it.y }, { it.x }))
+            .sortedWith(compareBy<HomeItem>({ it.screen }, { it.y }, { it.x }, { if (it === first) 0 else 1 }))   // [first] (just dropped) goes before the icon already in its cell
         val usedBefore = items.filter { it.container == Container.WORKSPACE }.map { it.screen }.toSet()
         var changed = false
         var screen = 0; var x = 0; var y = 0
