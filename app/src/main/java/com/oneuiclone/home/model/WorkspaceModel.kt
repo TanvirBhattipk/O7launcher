@@ -102,6 +102,33 @@ class WorkspaceModel(private val context: Context, private val repo: AppReposito
     fun itemsOn(container: Container, screen: Int): List<HomeItem> =
         items.filter { it.container == container && (container == Container.HOTSEAT || it.screen == screen) }
 
+    /**
+     * Classic Home: the icons (apps and small folders) close ranks. Taken in their order on Home (page, row, column),
+     * they are laid back down row by row from the first page, so a cell left empty is taken by the next icon, spilling
+     * onto the next page. Widgets and enlarged folders keep their places (the icons flow around them), and the dock
+     * is left alone. Pages that this emptied, at the end, go. True when anything moved.
+     */
+    fun compactHome(cols: Int, rows: Int): Boolean {
+        val fixed = items.filter { it.container == Container.WORKSPACE && !(it is HomeItem.App || (it is HomeItem.Folder && !it.large)) }
+        val icons = items.filter { it.container == Container.WORKSPACE && (it is HomeItem.App || (it is HomeItem.Folder && !it.large)) }
+            .sortedWith(compareBy({ it.screen }, { it.y }, { it.x }))
+        val usedBefore = items.filter { it.container == Container.WORKSPACE }.map { it.screen }.toSet()
+        var changed = false
+        var screen = 0; var x = 0; var y = 0
+        fun blocked() = fixed.any { it.screen == screen && x >= it.x && x < it.x + it.spanX && y >= it.y && y < it.y + it.spanY }
+        fun next() { if (++x >= cols) { x = 0; if (++y >= rows) { y = 0; screen++ } } }
+        for (it in icons) {
+            while (blocked()) next()
+            if (it.screen != screen || it.x != x || it.y != y) { it.screen = screen; it.x = x; it.y = y; changed = true }
+            next()
+        }
+        if (screen + 1 > pageCount) { pageCount = screen + 1; changed = true }
+        while (pageCount > 1 && (pageCount - 1) in usedBefore && items.none { it.container == Container.WORKSPACE && it.screen == pageCount - 1 }) {
+            pageCount--; changed = true
+        }
+        return changed
+    }
+
     /** First free [sx]×[sy] area on [screen], scanning rows top-down. */
     fun findSpace(screen: Int, sx: Int, sy: Int, cols: Int, rows: Int): Pair<Int, Int>? {
         for (y in 0..rows - sy) for (x in 0..cols - sx) if (!isOccupied(screen, x, y, sx, sy)) return x to y
