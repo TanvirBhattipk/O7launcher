@@ -195,7 +195,11 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         activity, overlay, { dp }, { model }, { workspace }, { hotseat }, background,
         { bindWorkspace() }, { findView(it) }, { widgets.delete(it.appWidgetId) }, { findItemView(it) },
         homeOnly = { prefs.homeOnly },
-        tidyHome = { m -> if (prefs.homeOnly) repo?.let { fillHome(m, it.apps) } },
+        tidyHome = { m, first ->
+            if (prefs.homeOnly) repo?.let { fillHome(m, it.apps, first) }          // (Classic: every app is on Home, too)
+            else if (prefs.fillEmptyCells) m.compactHome(dp.homeCols, dp.homeRows, first)
+        },
+        fillEmpty = { prefs.fillEmptyCells },
         openFolderForDrop = { view, folder, app, dragged ->
             val m = model; val r = repo
             if (m == null || r == null) null else {
@@ -1404,7 +1408,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
     }
 
     /** Home screen apps: every app is on a Home page (the ones not placed yet go to the first free spots, A–Z). */
-    private fun fillHome(m: WorkspaceModel, apps: List<AppInfo>) {
+    private fun fillHome(m: WorkspaceModel, apps: List<AppInfo>, first: HomeItem? = null) {
         if (!prefs.homeOnly) {
             // turned off: Home is as it was before every app was put on it
             if (m.hasBackup() && m.restoreBackup()) m.prune()
@@ -1415,7 +1419,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         val missing = apps.filter { it.key !in onHome }
         missing.forEach { addToHome(it, rebind = false, save = false) }
         // the icons close ranks: a cell left empty (an icon moved or removed) is taken by the next icon
-        val moved = m.compactHome(dp.homeCols, dp.homeRows)
+        val moved = prefs.fillEmptyCells && m.compactHome(dp.homeCols, dp.homeRows, first)
         if (missing.isNotEmpty() || moved) m.save()
     }
 
