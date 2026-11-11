@@ -48,7 +48,9 @@ class DragController(
     /** Classic Home (every app is on Home): apps can't be dragged off it to be removed. */
     private val homeOnly: () -> Boolean = { false },
     /** Classic Home: called after a drop, before it is saved, so the icons close ranks and every app is still on Home. */
-    private val tidyHome: (WorkspaceModel) -> Unit = {},
+    private val tidyHome: (WorkspaceModel, HomeItem?) -> Unit = { _, _ -> },
+    /** Whether Home fills empty cells: an icon dropped onto another slides it (and the ones after it) along. */
+    private val fillEmpty: () -> Boolean = { false },
 ) {
     companion object {
         /** Hover this long over an occupied spot before the items there move aside (Launcher3 REORDER_TIMEOUT-ish). */
@@ -426,7 +428,38 @@ class DragController(
         val container: Container, val screen: Int, val x: Int, val y: Int, val mergeWith: HomeItem?,
         /** Items that move aside to make room: item → new top-left cell. */
         val pushes: Map<HomeItem, Pair<Int, Int>> = emptyMap(),
+        /** Fill-empty-cells: the dropped icon goes in ahead of the one in this cell, which slides along with the rest ([pushes] only previews it). */
+        val insert: Boolean = false,
     )
+
+    /** The icon just dropped onto an occupied cell (see [Target.insert]); tells the tidy-up to put it first. */
+    private var insertFirst: HomeItem? = null
+
+    /**
+     * Where the icons slide to when an icon is dropped on ([x], [y]) of [page]: each one from that cell on moves to the
+     * next cell for icons, until one lands in a free cell (or the page ends: the last one goes on to the next page).
+     */
+    private fun planInsert(m: WorkspaceModel, page: Int, x: Int, y: Int, dragged: HomeItem?): Map<HomeItem, Pair<Int, Int>> {
+        val dp = dpProvider()
+        val cols = dp.homeCols; val rows = dp.homeRows
+        fun isIcon(i: HomeItem) = i is HomeItem.App || (i is HomeItem.Folder && !i.large)
+        val onPage = m.items.filter { it !== dragged && it.container == Container.WORKSPACE && it.screen == page }
+        val fixed = onPage.filter { !isIcon(it) }
+        val icons = onPage.filter { isIcon(it) }
+        fun blocked(cx: Int, cy: Int) = fixed.any { cx >= it.x && cx < it.x + it.spanX && cy >= it.y && cy < it.y + it.spanY }
+        val cells = ArrayList<Pair<Int, Int>>()
+        for (yy in y until rows) for (xx in (if (yy == y) x else 0) until cols) if (!blocked(xx, yy)) cells.add(xx to yy)
+        val out = LinkedHashMap<HomeItem, Pair<Int, Int>>()
+        var cur = icons.firstOrNull { it.x == x && it.y == y }
+        var i = 0
+        while (cur != null && i + 1 < cells.size) {
+            val next = cells[i + 1]
+            out[cur] = next
+            cur = icons.firstOrNull { it.x == next.first && it.y == next.second }
+            i++
+        }
+        return out
+    }
 
     /**
      * Make room for an [sx]×[sy] item at ([x], [y]) on [page]: everything it overlaps moves to the nearest free
@@ -556,6 +589,10 @@ class DragController(
         val tx = cx.coerceAtMost(dp.homeCols - sx)
         val ty = cy.coerceAtMost(dp.homeRows - sy)
         if (!m.isOccupied(page, tx, ty, sx, sy, item)) return Target(Container.WORKSPACE, page, tx, ty, null)
+        // fill empty cells: an icon dropped onto another goes in ahead of it, and the icons from there on slide along
+        if (fillEmpty() && sx == 1 && sy == 1 && (occupant is HomeItem.App || (occupant is HomeItem.Folder && !occupant.large))) {
+            return Target(Container.WORKSPACE, page, tx, ty, null, planInsert(m, page, tx, ty, item), insert = true)
+        }
         planReorder(m, page, tx, ty, sx, sy, item)?.let { return Target(Container.WORKSPACE, page, tx, ty, null, it) }
         // no room to rearrange: nearest free spot
         var best: Pair<Int, Int>? = null
@@ -600,7 +637,7 @@ class DragController(
             m.items.remove(item)
             if (item is HomeItem.Folder) m.items.removeAll { it is HomeItem.App && it.folderId == item!!.id }
             if (fromFolder >= 0) dissolveIfNeeded(m, fromFolder)
-            tidyHome(m)
+            tidyHome(m, null)
             m.save()
             dv.animate().scaleX(0f).scaleY(0f).alpha(0f).setDuration(200).withEndAction { overlay.removeView(dv) }.start()
             dragView = null
@@ -615,7 +652,8 @@ class DragController(
         val dropped = lastPlaced
         lastPlaced = null
         if (fromFolder >= 0) dissolveIfNeeded(m, fromFolder)
-        tidyHome(m)
+        tidyHome(m, insertFirst)
+        insertFirst = null
         m.save()
         rebind()
         if (t?.mergeWith != null && placed is HomeItem.Folder) {
@@ -691,7 +729,7 @@ class DragController(
         dragged.container = Container.FOLDER; dragged.folderId = folder.id
         apps.forEachIndexed { i, a -> a.rank = i }
         if (fromFolder >= 0 && fromFolder != folder.id) dissolveIfNeeded(m, fromFolder)
-        tidyHome(m)
+        tidyHome(m, null)
         m.save()
         rebind()
     }
@@ -821,7 +859,8 @@ class DragController(
         dragged.container = Container.WORKSPACE
         dragged.screen = t.screen; dragged.x = t.x; dragged.y = t.y
         if (dragged is HomeItem.App) dragged.folderId = -1
-        for ((it, p) in t.pushes) { it.x = p.first; it.y = p.second }
+        if (t.insert) insertFirst = dragged                                // (the icons slide along when the tidy-up lays them out again)
+        else for ((it, p) in t.pushes) { it.x = p.first; it.y = p.second }
         return dragged
     }
 
