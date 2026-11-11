@@ -39,6 +39,8 @@ class Prefs(context: Context) {
      * screen (overrides [swipeDownNotifications] and [swipeUpSearch]); off by default.
      */
     var swipeDownSearch: Boolean get() = sp.getBoolean("swipe_down_search", false); set(v) = sp.edit().putBoolean("swipe_down_search", v).apply()
+    /** Home screen: an icon dropped between others slides them along, and the gap an icon leaves is closed by the next icons. */
+    var fillEmptyCells: Boolean get() = sp.getBoolean("fill_empty_cells", true); set(v) = sp.edit().putBoolean("fill_empty_cells", v).apply()
     var lockLayout: Boolean get() = sp.getBoolean("lock_layout", false); set(v) = sp.edit().putBoolean("lock_layout", v).apply()
     var addNewApps: Boolean get() = sp.getBoolean("add_new_apps", false); set(v) = sp.edit().putBoolean("add_new_apps", v).apply()
     var themedIcons: Boolean get() = sp.getBoolean("themed_icons", false); set(v) = sp.edit().putBoolean("themed_icons", v).apply()
