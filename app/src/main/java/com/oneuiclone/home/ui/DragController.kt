@@ -435,11 +435,17 @@ class DragController(
     /** The icon just dropped onto an occupied cell (see [Target.insert]); tells the tidy-up to put it first. */
     private var insertFirst: HomeItem? = null
 
+    /** [pushes]: where icons move to. [direct]: they are applied as they are on drop; otherwise the dropped icon goes in ahead of the one in its cell. */
+    private class InsertPlan(val pushes: Map<HomeItem, Pair<Int, Int>>, val direct: Boolean)
+
     /**
-     * Where the icons slide to when an icon is dropped on ([x], [y]) of [page]: each one from that cell on moves to the
-     * next cell for icons, until one lands in a free cell (or the page ends: the last one goes on to the next page).
+     * Where the icons slide to when an icon is dropped on ([x], [y]) of [page], as in a list:
+     *  - dragged forward on its own page (cell 1 over cell 2): the icons it passes move back one cell each, cell 2 into cell 1;
+     *  - dragged backward, or in from another page or the dock (onto cell 2): the icon there and the ones after it move on
+     *    one cell each, cell 2 to cell 3, cell 3 to cell 4 ..., until one lands in a free cell (the cell the dragged icon left,
+     *    when it came from this page) or the page ends (the last one goes on to the next page).
      */
-    private fun planInsert(m: WorkspaceModel, page: Int, x: Int, y: Int, dragged: HomeItem?): Map<HomeItem, Pair<Int, Int>> {
+    private fun planInsert(m: WorkspaceModel, page: Int, x: Int, y: Int, dragged: HomeItem?): InsertPlan {
         val dp = dpProvider()
         val cols = dp.homeCols; val rows = dp.homeRows
         fun isIcon(i: HomeItem) = i is HomeItem.App || (i is HomeItem.Folder && !i.large)
@@ -447,18 +453,25 @@ class DragController(
         val fixed = onPage.filter { !isIcon(it) }
         val icons = onPage.filter { isIcon(it) }
         fun blocked(cx: Int, cy: Int) = fixed.any { cx >= it.x && cx < it.x + it.spanX && cy >= it.y && cy < it.y + it.spanY }
-        val cells = ArrayList<Pair<Int, Int>>()
-        for (yy in y until rows) for (xx in (if (yy == y) x else 0) until cols) if (!blocked(xx, yy)) cells.add(xx to yy)
+        fun iconAt(c: Pair<Int, Int>) = icons.firstOrNull { it.x == c.first && it.y == c.second }
+        val all = ArrayList<Pair<Int, Int>>()                                   // every cell an icon can be in, in order
+        for (yy in 0 until rows) for (xx in 0 until cols) if (!blocked(xx, yy)) all.add(xx to yy)
+        val to = all.indexOf(x to y)
+        val from = dragged?.takeIf { it.container == Container.WORKSPACE && it.screen == page && isIcon(it) }?.let { all.indexOf(it.x to it.y) } ?: -1
         val out = LinkedHashMap<HomeItem, Pair<Int, Int>>()
-        var cur = icons.firstOrNull { it.x == x && it.y == y }
-        var i = 0
-        while (cur != null && i + 1 < cells.size) {
-            val next = cells[i + 1]
+        if (from in 0 until to) {
+            for (k in from + 1..to) iconAt(all[k])?.let { out[it] = all[k - 1] }
+            return InsertPlan(out, true)
+        }
+        var cur = iconAt(x to y)
+        var i = to
+        while (cur != null && i >= 0 && i + 1 < all.size) {
+            val next = all[i + 1]
             out[cur] = next
-            cur = icons.firstOrNull { it.x == next.first && it.y == next.second }
+            cur = iconAt(next)
             i++
         }
-        return out
+        return InsertPlan(out, false)
     }
 
     /**
@@ -591,7 +604,8 @@ class DragController(
         if (!m.isOccupied(page, tx, ty, sx, sy, item)) return Target(Container.WORKSPACE, page, tx, ty, null)
         // fill empty cells: an icon dropped onto another goes in ahead of it, and the icons from there on slide along
         if (fillEmpty() && sx == 1 && sy == 1 && (occupant is HomeItem.App || (occupant is HomeItem.Folder && !occupant.large))) {
-            return Target(Container.WORKSPACE, page, tx, ty, null, planInsert(m, page, tx, ty, item), insert = true)
+            val plan = planInsert(m, page, tx, ty, item)
+            return Target(Container.WORKSPACE, page, tx, ty, null, plan.pushes, insert = !plan.direct)
         }
         planReorder(m, page, tx, ty, sx, sy, item)?.let { return Target(Container.WORKSPACE, page, tx, ty, null, it) }
         // no room to rearrange: nearest free spot
