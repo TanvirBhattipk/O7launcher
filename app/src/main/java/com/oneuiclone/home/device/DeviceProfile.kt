@@ -47,8 +47,8 @@ class DeviceProfile(
     val cellWidth = (widthPx - 2 * pageSidePadding) / homeCols
     val cellHeight = gridHeight / homeRows
 
-    /** 62.7 % of the cell width (the stock 66 % made 5 % smaller): Home, the dock and the Apps screen all use it. */
-    val iconSizePx = (cellWidth * 0.627f * iconScale).roundToInt().coerceAtMost((cellHeight * 0.62f).roundToInt()).let { if (it % 2 == 1) it + 1 else it }
+    /** 65.2 % of the cell width (the stock 66 % made 5 % smaller, then 4 % bigger again): the "Icon size" slider's 100 %. Home, the dock and the Apps screen all use it. */
+    val iconSizePx = (cellWidth * 0.652f * iconScale).roundToInt().coerceAtMost((cellHeight * 0.62f).roundToInt()).let { if (it % 2 == 1) it + 1 else it }
     /**
      * The icon size of the search page's Recents row: Home's 62.7 % of the cell width made 5 % smaller, and fixed, so
      * changing Home's icon size (or its icon scale) never changes it.
