@@ -41,46 +41,6 @@ class SettingsActivity : OneUiPage() {
         if (rebuildOnResume) { rebuildOnResume = false; build() }
     }
 
-    /**
-     * "Classic" (every app on the Home screen, no Apps screen: Prefs.homeOnly) or "With App drawer", as two phone
-     * drawings side by side; the chosen one has a blue outline and a blue label.
-     */
-    private fun homeModePicker() {
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(6f), 0, dp(6f), 0) }
-        val frames = ArrayList<Pair<FrameLayout, TextView>>()
-        fun refresh() = frames.forEachIndexed { i, (frame, label) ->
-            val on = (i == 0) == prefs.homeOnly                              // 0 = Classic, 1 = With App drawer
-            frame.background = GradientDrawable().apply {
-                cornerRadius = dp(22f).toFloat()
-                setStroke(dp(2.5f), if (on) primary else Color.TRANSPARENT)
-            }
-            label.setTextColor(if (on) primary else text)
-        }
-        listOf("Classic" to true, "With App drawer" to false).forEachIndexed { i, (name, classic) ->
-            val frame = FrameLayout(this).apply { setPadding(dp(5f), dp(5f), dp(5f), dp(5f)) }
-            frame.addView(HomeModePreview(this, classic), FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            val label = TextView(this).apply {
-                this.text = name
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-                typeface = Fonts.ui(this@SettingsActivity, 400)
-                gravity = Gravity.CENTER
-                setPadding(0, dp(10f), 0, 0)
-            }
-            frames.add(frame to label)
-            val col = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                isClickable = true
-                contentDescription = name
-                setOnClickListener { prefs.homeOnly = classic; refresh() }
-                addView(frame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                addView(label, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            }
-            row.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { if (i == 0) rightMargin = dp(8f) else leftMargin = dp(8f) })
-        }
-        refresh()
-        list.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(20f) })
-    }
-
     /** Set when leaving for the live wallpaper preview, whose outcome only shows once we're back. */
     private var rebuildOnResume = false
 
@@ -105,8 +65,11 @@ class SettingsActivity : OneUiPage() {
             gravity = Gravity.CENTER
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (resources.displayMetrics.heightPixels * 0.30f).toInt()))
 
-        homeModePicker()
-
+        card {
+            item("Home Style", if (prefs.homeOnly) "Classic" else "With App drawer") {
+                startActivity(Intent(this@SettingsActivity, HomeStyleActivity::class.java))
+            }
+        }
         card {
             item("Home screen grid", "${prefs.homeCols}×${prefs.homeRows}") {
                 choose("Home screen grid", listOf(4 to 5, 4 to 6, 4 to 7, 5 to 5, 5 to 6)) { (c, r) -> prefs.homeCols = c; prefs.homeRows = r }
