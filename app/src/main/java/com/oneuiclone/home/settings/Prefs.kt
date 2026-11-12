@@ -15,7 +15,7 @@ class Prefs(context: Context) {
     var appsCols: Int get() = sp.getInt("apps_cols", 4); set(v) = sp.edit().putInt("apps_cols", v).apply()
     var appsRows: Int get() = sp.getInt("apps_rows", 6); set(v) = sp.edit().putInt("apps_rows", v).apply()
     /** 85..115 % (Home Up range); stock small/medium/large = 90/100/110. */
-    var iconScale: Int get() = sp.getInt("icon_scale", 100); set(v) = sp.edit().putInt("icon_scale", v).apply()
+    var iconScale: Int get() = sp.getInt("icon_scale", 104); set(v) = sp.edit().putInt("icon_scale", v).apply()
     /** 70..130 % of the stock app label size (Icons › Label size), on Home, the Apps screen and search. */
     /** Favorite contacts on the search page. */
     var searchContacts: Boolean get() = sp.getBoolean("search_contacts", true); set(v) = sp.edit().putBoolean("search_contacts", v).apply()
