@@ -19,7 +19,7 @@ import com.oneuiclone.home.ui.Fonts
 
 /**
  * Clean Material 3 / One UI settings page: solid background surface, rounded grouped cards with subtle
- * 1dp row dividers, and right chevrons on clickable items.
+ * 1.5dp row dividers, and right chevrons on clickable items.
  */
 abstract class OneUiPage : Activity() {
 
@@ -103,7 +103,7 @@ abstract class OneUiPage : Activity() {
         }
     }
 
-    /** Grouped card container with rounded corners and thin 1dp separators between rows. */
+    /** Grouped card container with rounded corners and thin 1.5dp separators between rows. */
     protected fun card(block: () -> Unit) {
         val c = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
