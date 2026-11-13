@@ -36,24 +36,27 @@ import kotlin.math.min
  */
 class LiquidGlass(
     context: Context,
-    /** Lens band depth as a fraction of the shorter side (LastWave pills: 1/6). */
-    private val depthFraction: Float = 1f / 6f,
-    /** Max lens displacement as a fraction of the shorter side (LastWave pills: 1/2). */
-    private val amountFraction: Float = 0.5f,
-    /** 1 = unchanged. LastWave pills 1.1, header bars 1.6. */
-    private val saturation: Float = 1.1f,
-    private val brightness: Float = 0.05f,
+    /** 1 = unchanged. The playground's `vibrancy()` is 1.5. */
+    private val saturation: Float = 1.5f,
+    private val brightness: Float = 0f,
     /** Called when a press spring moves, so the owner can invalidate. */
     private val onChange: () -> Unit = {},
 ) {
     private val density = context.resources.displayMetrics.density
 
+    private val prefs = com.oneuiclone.home.settings.Prefs(context)
+
     /** Off when the Liquid glass setting is off (the view then draws as before, via [GlassPaint]). */
-    val enabled: Boolean = com.oneuiclone.home.settings.Prefs(context).liquidGlass
+    val enabled: Boolean = prefs.liquidGlass
+
+    /** The Glass playground's settings (refraction height/amount, chromatic aberration; blur and corner radius apply to the pane). */
+    val params: GlassParams = prefs.glassParams
 
     // ---- backdrop (lens) ----
     private val fallback = GlassPaint()
-    private val lens: RuntimeShader? = if (enabled) runCatching { RuntimeShader(LENS_AGSL) }.getOrNull() else null
+    private val lens: RuntimeShader? = if (enabled) runCatching {
+        RuntimeShader(GlassShaders.refraction(mapped = true, dispersion = params.chromaticAberration > 0f))
+    }.getOrNull() else null
     private val lensPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private var boundBitmap: android.graphics.Bitmap? = null
     private val toGlass = Matrix()
@@ -78,11 +81,14 @@ class LiquidGlass(
             toGlass.preConcat(toWindow)
             toGlass.getValues(m)
             val minSide = min(rect.width(), rect.height())
-            shader.setFloatUniform("center", rect.centerX(), rect.centerY())
+            val rr = radius.coerceAtMost(minSide / 2f)
             shader.setFloatUniform("size", rect.width(), rect.height())
-            shader.setFloatUniform("radius", radius.coerceAtMost(minSide / 2f))
-            shader.setFloatUniform("depth", (minSide * depthFraction).coerceAtLeast(1f))
-            shader.setFloatUniform("amount", minSide * amountFraction)
+            shader.setFloatUniform("offset", -rect.left, -rect.top)
+            shader.setFloatUniform("cornerRadii", floatArrayOf(rr, rr, rr, rr))
+            shader.setFloatUniform("refractionHeight", (params.refractionHeight * minSide * 0.5f).coerceAtLeast(1f))
+            shader.setFloatUniform("refractionAmount", -params.refractionAmount * minSide)   // Kyant passes it negated
+            shader.setFloatUniform("depthEffect", 1f)
+            if (params.chromaticAberration > 0f) shader.setFloatUniform("chromaticAberration", 1f)
             shader.setFloatUniform("mx", m[Matrix.MSCALE_X], m[Matrix.MSKEW_X], m[Matrix.MTRANS_X])
             shader.setFloatUniform("my", m[Matrix.MSKEW_Y], m[Matrix.MSCALE_Y], m[Matrix.MTRANS_Y])
             shader.setFloatUniform("sat", saturation)
@@ -214,49 +220,23 @@ class LiquidGlass(
 
         /** Saturation boost for a plain bitmap backdrop (quick options): LastWave's header-bar vibrancy. */
         fun saturationFilter(s: Float) = ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(s) })
-
-        /**
-         * Lens: inside a rounded rect, samples the (already blurred) wallpaper displaced along the edge normal by a
-         * circular profile, so the rim bends the scene like thick glass (Kyant `lens`, depthEffect = false), then
-         * applies colour controls (saturation about luma, brightness offset).
-         * `mx`/`my` are the rows of the canvas -> bitmap-pixel affine map.
-         */
-        private const val LENS_AGSL = """
-            uniform shader content;
-            uniform float2 center;
-            uniform float2 size;
-            uniform float radius;
-            uniform float depth;
-            uniform float amount;
-            uniform float3 mx;
-            uniform float3 my;
-            uniform float sat;
-            uniform float bright;
-
-            half4 main(float2 p) {
-                float2 d = p - center;
-                float2 q = abs(d) - (size * 0.5 - float2(radius));
-                float2 qm = max(q, float2(0.0));
-                float outside = length(qm);
-                float sd = outside + min(max(q.x, q.y), 0.0) - radius;
-                float t = clamp(1.0 + sd / depth, 0.0, 1.0);
-                float k = 1.0 - sqrt(max(1.0 - t * t, 0.0));
-                float2 s = sign(d);
-                float2 n = float2(0.0);
-                if (outside > 0.0) {
-                    n = s * qm / outside;
-                } else if (q.x > q.y) {
-                    n = float2(s.x, 0.0);
-                } else {
-                    n = float2(0.0, s.y);
-                }
-                float2 sp = p + n * amount * k;
-                float2 b = float2(dot(mx, float3(sp, 1.0)), dot(my, float3(sp, 1.0)));
-                half4 col = content.eval(b);
-                half l = dot(col.rgb, half3(0.2126, 0.7152, 0.0722));
-                half3 rgb = mix(half3(l), col.rgb, half(sat)) + half(bright);
-                return half4(clamp(rgb, half3(0.0), half3(1.0)), 1.0);
-            }
-        """
     }
 }
+
+/**
+ * The Glass playground's five settings (Kyant AndroidLiquidGlass catalog, GlassPlaygroundContent):
+ * all fractions 0..1 except [blurDp] (0..32).
+ *
+ * @property cornerRadius fraction of half the shorter side (1 = fully round); applies to the playground pane
+ * @property blurDp extra blur behind the glass; applies to the playground pane
+ * @property refractionHeight band width as a fraction of half the shorter side
+ * @property refractionAmount displacement as a fraction of the shorter side
+ * @property chromaticAberration above 0 turns colour dispersion on
+ */
+data class GlassParams(
+    val cornerRadius: Float = 0.5f,
+    val blurDp: Float = 0f,
+    val refractionHeight: Float = 0.2f,
+    val refractionAmount: Float = 0.2f,
+    val chromaticAberration: Float = 0f,
+)
