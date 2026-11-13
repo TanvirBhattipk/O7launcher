@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Icons > Icon shape > Square: the outline every square icon is cut to. IconShape reads this path (100 x 100 box) at start-up. -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="100dp" android:height="100dp" android:viewportWidth="100" android:viewportHeight="100">
-    <path android:fillColor="#FF000000"
-        android:pathData="M 0 42.5 C 0 26.132812 0 17.949219 3.683594 11.9375 C 5.746094 8.574219 8.574219 5.746094 11.9375 3.683594 C 17.949219 0 26.132812 0 42.5 0 L 57.5 0 C 73.867188 0 82.050781 0 88.0625 3.683594 C 91.425781 5.746094 94.253906 8.574219 96.316406 11.9375 C 100 17.949219 100 26.132812 100 42.5 L 100 57.5 C 100 73.867188 100 82.050781 96.316406 88.0625 C 94.253906 91.425781 91.425781 94.253906 88.0625 96.316406 C 82.050781 100 73.867188 100 57.5 100 L 42.5 100 C 26.132812 100 17.949219 100 11.9375 96.316406 C 8.574219 94.253906 5.746094 91.425781 3.683594 88.0625 C 0 82.050781 0 73.867188 0 57.5 Z M 0 42.5" />
-</vector>
