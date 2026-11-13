@@ -206,6 +206,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
                 folders.openForDrop(view, folder, its.mapNotNull { r.get(it.key) } + app, its + dragged)
             }
         },
+        fillEmpty = { prefs.fillEmptyCells },
     )
     private var popup: com.oneuiclone.home.ui.QuickOptionPopup? = null
     private val shortcutLoader = com.oneuiclone.home.ui.ShortcutLoader(activity, (52 * activity.resources.displayMetrics.density).toInt())
