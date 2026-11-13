@@ -31,7 +31,7 @@ class SearchPill(context: Context, private val dp: DeviceProfile, private val hi
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
     private val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = dp.dp(1f)
+        strokeWidth = dp.dp(1.6f)                                   // a slightly thick border
     }
     private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = 15f * resources.displayMetrics.scaledDensity
@@ -65,7 +65,7 @@ class SearchPill(context: Context, private val dp: DeviceProfile, private val hi
     private fun scaled(c: Int) = (c and 0x00FFFFFF) or ((android.graphics.Color.alpha(c) * backgroundOpacity).toInt() shl 24)
 
     private val glassPaint = GlassPaint()
-    private val rim = LiquidRim()
+    private val liquid = LiquidGlassPaint()
     private val toWindow = Matrix()
     private val drawnAt = Matrix()
     private val moved = ViewTreeObserver.OnPreDrawListener {
@@ -125,19 +125,15 @@ class SearchPill(context: Context, private val dp: DeviceProfile, private val hi
             for (i in -1..1) canvas.drawCircle(cx, cy + i * dp.dp(6f), dp.dp(2.2f), dots)
             return
         }
-        val liquid = glass != null && LiquidGlass.enabled
-        val gap = if (liquid) dp.dp(0.8f) else inset
-        rect.set(gap, gap, width - gap, height - gap)
+        rect.set(inset, inset, width - inset, height - inset)
         val r = rect.height() / 2f
         drawnAt.reset(); transformMatrixToGlobal(drawnAt)
-        if (glassPaint.aimLiquid(canvas, glass, drawnAt, rect, r, dp.dp(1f))) {
+        if (!liquid.draw(canvas, glass, drawnAt, rect.left, rect.top, rect.width(), rect.height(), r) && glassPaint.aim(glass, drawnAt)) {
             glassPaint.paint.alpha = (255 * backgroundOpacity).toInt()
             canvas.drawRoundRect(rect, r, r, glassPaint.paint)
         }
         canvas.drawRoundRect(rect, r, r, fill)
-        border.strokeWidth = dp.dp(if (liquid) 1.5f else 1f)                   // a slightly thick border with liquid glass
         canvas.drawRoundRect(rect, r, r, border)
-        if (liquid) rim.draw(canvas, rect, r, dp.dp(LiquidGlass.RIM_DP), 0.75f * backgroundOpacity)
         // magnifier glyph (24dp box)
         val box = dp.dp(24f)
         val gx = dp.dp(16f)
