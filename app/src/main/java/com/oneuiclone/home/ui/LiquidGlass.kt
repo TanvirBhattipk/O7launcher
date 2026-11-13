@@ -59,7 +59,7 @@ object LiquidGlass {
 
     /** Draws the specular liquid rim highlight over a popup card for QuickOptionPopup. */
     fun drawChrome(canvas: Canvas, rect: RectF, radius: Float, night: Boolean) {
-        val rimWidth = RIM_DP * 3f
+        val rimWidth = RIM_DP * 1.5f
         val strength = if (night) 0.55f else 0.75f
         chromeRim.draw(canvas, rect, radius, rimWidth, strength)
     }
