@@ -14,7 +14,7 @@ import kotlin.math.max
 /**
  * Liquid glass, after Kyant's AndroidLiquidGlass (the "backdrop" library): the blurred wallpaper behind a rounded shape
  * is bent by a lens near its edge (a refraction shader on the shape's signed distance field), made more vivid
- * (vibrancy: saturation 1.5), and lit by a thicker rim highlight whose brightness follows the edge's direction
+ * (vibrancy: saturation 1.5), and lit by a thin rim highlight whose brightness follows the edge's direction
  * (brightest on opposite corners, at 45 degrees). The library is for Compose; this is its shaders on plain Views.
  * Turned off in Settings › Liquid glass, and skipped on software canvases (snapshots), where shaders can't run.
  */
@@ -22,10 +22,14 @@ object LiquidGlass {
     /** Settings › Liquid glass › Liquid glass effect. */
     @JvmField var enabled = true
 
-    /** Lens height, lens strength and rim width, in dp (the library's LiquidButton uses 12 and 24). */
+    /** Lens height, lens strength and thin rim width, in dp. */
     const val REFRACTION_DP = 12f
     const val AMOUNT_DP = 24f
-    const val RIM_DP = 0.5f
+    const val RIM_DP = 0.75f
+
+    /** Live configurable lens height and strength in dp, updated from Settings › Liquid glass. */
+    @JvmField var refractionHeightDp = REFRACTION_DP
+    @JvmField var refractionAmountDp = AMOUNT_DP
 
     /** Vibrancy: the glass is made more colourful (the library's saturation 1.5). */
     val vibrancy = ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(1.5f) })
@@ -57,9 +61,9 @@ object LiquidGlass {
         }
     }
 
-    /** Draws the specular liquid rim highlight over a popup card for QuickOptionPopup. */
+    /** Draws the thin specular liquid rim highlight over a popup card for QuickOptionPopup. */
     fun drawChrome(canvas: Canvas, rect: RectF, radius: Float, night: Boolean) {
-        val rimWidth = RIM_DP * 1.0f
+        val rimWidth = RIM_DP * 1.5f
         val strength = if (night) 0.55f else 0.75f
         chromeRim.draw(canvas, rect, radius, rimWidth, strength)
     }
