@@ -41,6 +41,15 @@ class Prefs(context: Context) {
     var swipeDownSearch: Boolean get() = sp.getBoolean("swipe_down_search", false); set(v) = sp.edit().putBoolean("swipe_down_search", v).apply()
     /** Home screen: an icon dropped between others slides them along, and the gap an icon leaves is closed by the next icons. */
     var fillEmptyCells: Boolean get() = sp.getBoolean("fill_empty_cells", true); set(v) = sp.edit().putBoolean("fill_empty_cells", v).apply()
+    /** Settings › Liquid glass: refraction, vibrancy and a lit rim on the blurred glass (pills, folders, widgets). */
+    var liquidGlass: Boolean get() = sp.getBoolean("liquid_glass", true); set(v) = sp.edit().putBoolean("liquid_glass", v).apply()
+    /** Settings › Liquid glass: the blur radius, in dp, of each blurred background. */
+    var blurAppSearch: Int get() = sp.getInt("blur_app_search", 72); set(v) = sp.edit().putInt("blur_app_search", v).apply()
+    var blurHomePill: Int get() = sp.getInt("blur_home_pill", 40); set(v) = sp.edit().putInt("blur_home_pill", v).apply()
+    var blurAppDrawer: Int get() = sp.getInt("blur_app_drawer", 72); set(v) = sp.edit().putInt("blur_app_drawer", v).apply()
+    var blurSearchBar: Int get() = sp.getInt("blur_search_bar", 40); set(v) = sp.edit().putInt("blur_search_bar", v).apply()
+    var blurFolder: Int get() = sp.getInt("blur_folder", 40); set(v) = sp.edit().putInt("blur_folder", v).apply()
+    var blurWidget: Int get() = sp.getInt("blur_widget", 40); set(v) = sp.edit().putInt("blur_widget", v).apply()
     var lockLayout: Boolean get() = sp.getBoolean("lock_layout", false); set(v) = sp.edit().putBoolean("lock_layout", v).apply()
     var addNewApps: Boolean get() = sp.getBoolean("add_new_apps", false); set(v) = sp.edit().putBoolean("add_new_apps", v).apply()
     var themedIcons: Boolean get() = sp.getBoolean("themed_icons", false); set(v) = sp.edit().putBoolean("themed_icons", v).apply()
@@ -67,16 +76,6 @@ class Prefs(context: Context) {
      * Glass icons: themed icons whose solid plate is see-through by [glassIconTransparency] (0..100 %) over the
      * blurred wallpaper, like widgets and folders set to Style › Blur.
      */
-    /** iOS-style liquid glass on the Search pills and quick options (lens refraction, sheen, specular rim). */
-    var liquidGlass: Boolean get() = sp.getBoolean("liquid_glass", true); set(v) = sp.edit().putBoolean("liquid_glass", v).apply()
-    /** The Glass playground's settings, which the glass surfaces use. */
-    var glassParams: com.oneuiclone.home.ui.GlassParams
-        get() = com.oneuiclone.home.ui.GlassParams(
-            sp.getFloat("glass_corner", 0.5f), sp.getFloat("glass_blur", 0f), sp.getFloat("glass_ref_height", 0.2f),
-            sp.getFloat("glass_ref_amount", 0.2f), sp.getFloat("glass_chromatic", 0f))
-        set(v) = sp.edit().putFloat("glass_corner", v.cornerRadius).putFloat("glass_blur", v.blurDp)
-            .putFloat("glass_ref_height", v.refractionHeight).putFloat("glass_ref_amount", v.refractionAmount)
-            .putFloat("glass_chromatic", v.chromaticAberration).apply()
     var glassIcons: Boolean get() = sp.getBoolean("glass_icons", false); set(v) = sp.edit().putBoolean("glass_icons", v).apply()
     var glassIconTransparency: Int get() = sp.getInt("glass_icon_transparency", 50); set(v) = sp.edit().putInt("glass_icon_transparency", v).apply()
     /** Opacity of a themed icon's plate: below 1 only with glass icons on (and theme icons, which they build on). */

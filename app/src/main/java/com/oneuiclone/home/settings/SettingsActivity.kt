@@ -71,6 +71,11 @@ class SettingsActivity : OneUiPage() {
             }
         }
         card {
+            item("Liquid glass", "Blur radius of the search bars, drawer, folders and widgets") {
+                startActivity(Intent(this@SettingsActivity, LiquidGlassActivity::class.java))
+            }
+        }
+        card {
             item("Home screen grid", "${prefs.homeCols}×${prefs.homeRows}") {
                 choose("Home screen grid", listOf(4 to 5, 4 to 6, 4 to 7, 5 to 5, 5 to 6)) { (c, r) -> prefs.homeCols = c; prefs.homeRows = r }
             }
@@ -81,10 +86,6 @@ class SettingsActivity : OneUiPage() {
             toggle("Contacts in search", "Show your favorite contacts on the search page", prefs.searchContacts) { prefs.searchContacts = it }
             item("Wallpaper and style", "Wallpaper, blur and colour palette, with a preview") {
                 startActivity(Intent(this@SettingsActivity, WallpaperStyleActivity::class.java))
-            }
-            toggle("Liquid glass", "iOS-style glass on the Search pills and quick options", prefs.liquidGlass) { prefs.liquidGlass = it }
-            item("Glass playground", "Drag, pinch and rotate a glass pane; tune refraction, blur and corners") {
-                startActivity(Intent(this@SettingsActivity, GlassPlaygroundActivity::class.java))
             }
             item("Icons", "Icon shape, theme, size and labels") {
                 startActivity(Intent(this@SettingsActivity, IconThemeActivity::class.java))
