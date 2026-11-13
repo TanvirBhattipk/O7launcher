@@ -19,7 +19,7 @@ class LiquidGlassActivity : OneUiPage() {
             slider("App search background", prefs.blurAppSearch, 0, 100, unit = " dp") { prefs.blurAppSearch = it }
             slider("Search pill", prefs.blurHomePill, 0, 100, unit = " dp") { prefs.blurHomePill = it }
             slider("App drawer background", prefs.blurAppDrawer, 0, 100, unit = " dp") { prefs.blurAppDrawer = it }
-            slider("Both search bar backgrounds", prefs.blurSearchBar, 0, 100, unit = " dp") { prefs.blurSearchBar = it }
+            slider("Search bars", prefs.blurSearchBar, 0, 100, unit = " dp") { prefs.blurSearchBar = it }
             slider("Folder background", prefs.blurFolder, 0, 100, unit = " dp") { prefs.blurFolder = it }
             slider("Widget background", prefs.blurWidget, 0, 100, unit = " dp") { prefs.blurWidget = it }
         }
