@@ -103,27 +103,42 @@ class WorkspaceModel(private val context: Context, private val repo: AppReposito
         items.filter { it.container == container && (container == Container.HOTSEAT || it.screen == screen) }
 
     /**
-     * Classic Home: the icons (apps and small folders) close ranks. Taken in their order on Home (page, row, column),
-     * they are laid back down row by row from the first page, so a cell left empty is taken by the next icon, spilling
-     * onto the next page. Widgets and enlarged folders keep their places (the icons flow around them), and the dock
-     * is left alone. Pages that this emptied, at the end, go. True when anything moved. [first] is an icon just dropped
-     * onto a cell: it goes in ahead of the icon that was there, which (with the ones after it) slides along.
+     * Home's icons (apps and small folders) close ranks, page by page: each page's icons are laid back down row by row
+     * from its first cell, so a cell left empty is taken by the next icon on that page. Widgets and enlarged folders keep
+     * their places (the icons flow around them), and the dock is left alone. A page with more icons than cells (one was
+     * just dropped on it) passes its last icons on to the front of the next page, whose own icons move along, and so on
+     * until a page with room takes them (or a new page is added). Pages that this emptied, at the end, go. True when
+     * anything moved. [first] is an icon just dropped onto a cell: it goes in ahead of the icon that was there.
      */
     fun compactHome(cols: Int, rows: Int, first: HomeItem? = null): Boolean {
-        val fixed = items.filter { it.container == Container.WORKSPACE && !(it is HomeItem.App || (it is HomeItem.Folder && !it.large)) }
-        val icons = items.filter { it.container == Container.WORKSPACE && (it is HomeItem.App || (it is HomeItem.Folder && !it.large)) }
-            .sortedWith(compareBy<HomeItem>({ it.screen }, { it.y }, { it.x }, { if (it === first) 0 else 1 }))   // [first] (just dropped) goes before the icon already in its cell
-        val usedBefore = items.filter { it.container == Container.WORKSPACE }.map { it.screen }.toSet()
+        fun isIcon(i: HomeItem) = i is HomeItem.App || (i is HomeItem.Folder && !i.large)
+        val onHome = items.filter { it.container == Container.WORKSPACE }
+        val icons = onHome.filter { isIcon(it) }
+        val fixed = onHome.filter { !isIcon(it) }
+        val usedBefore = onHome.map { it.screen }.toSet()
+        val pages = maxOf(pageCount, (onHome.maxOfOrNull { it.screen } ?: 0) + 1)
         var changed = false
-        var screen = 0; var x = 0; var y = 0
-        fun blocked() = fixed.any { it.screen == screen && x >= it.x && x < it.x + it.spanX && y >= it.y && y < it.y + it.spanY }
-        fun next() { if (++x >= cols) { x = 0; if (++y >= rows) { y = 0; screen++ } } }
-        for (it in icons) {
-            while (blocked()) next()
-            if (it.screen != screen || it.x != x || it.y != y) { it.screen = screen; it.x = x; it.y = y; changed = true }
-            next()
+        var carry: List<HomeItem> = emptyList()
+        var screen = 0
+        while (screen < pages || carry.isNotEmpty()) {
+            val own = icons.filter { it.screen == screen }
+                .sortedWith(compareBy<HomeItem>({ it.y }, { it.x }, { if (it === first) 0 else 1 }))   // [first] goes before the icon in its cell
+            val here = fixed.filter { it.screen == screen }
+            val cells = ArrayList<Pair<Int, Int>>()
+            for (y in 0 until rows) for (x in 0 until cols) {
+                if (here.none { x >= it.x && x < it.x + it.spanX && y >= it.y && y < it.y + it.spanY }) cells.add(x to y)
+            }
+            val queue = carry + own                                                       // what the previous page passed on goes first
+            queue.forEachIndexed { i, it ->
+                if (i < cells.size) {
+                    val (x, y) = cells[i]
+                    if (it.screen != screen || it.x != x || it.y != y) { it.screen = screen; it.x = x; it.y = y; changed = true }
+                }
+            }
+            carry = queue.drop(cells.size)
+            screen++
         }
-        if (screen + 1 > pageCount) { pageCount = screen + 1; changed = true }
+        if (screen > pageCount) { pageCount = screen; changed = true }
         while (pageCount > 1 && (pageCount - 1) in usedBefore && items.none { it.container == Container.WORKSPACE && it.screen == pageCount - 1 }) {
             pageCount--; changed = true
         }
