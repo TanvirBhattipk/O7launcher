@@ -8,7 +8,10 @@ class Prefs(context: Context) {
     val sp: SharedPreferences = context.getSharedPreferences("home_settings", Context.MODE_PRIVATE)
 
     // whatever reads the settings first (Home, a widget, a settings page) sets the icon shape for this process
-    init { com.oneuiclone.home.icons.IconShape.current = iconShape }
+    init {
+        com.oneuiclone.home.icons.IconShape.current = iconShape
+        com.oneuiclone.home.ui.LiquidGlass.enabled = liquidGlass
+    }
 
     var homeCols: Int get() = sp.getInt("home_cols", 4); set(v) = sp.edit().putInt("home_cols", v).apply()
     var homeRows: Int get() = sp.getInt("home_rows", 6); set(v) = sp.edit().putInt("home_rows", v).apply()
@@ -20,6 +23,17 @@ class Prefs(context: Context) {
     /** Blur radius (0..100 %, in steps of 10) of the search page's background and of the search bars' glass. */
     var blurSearchBg: Int get() = sp.getInt("blur_search_bg", 100); set(v) = sp.edit().putInt("blur_search_bg", v).apply()
     var blurSearchBar: Int get() = sp.getInt("blur_search_bar", 60); set(v) = sp.edit().putInt("blur_search_bar", v).apply()
+    /** Settings › Liquid glass: the lens refraction, vibrancy and lit rim on pills, folders and widgets. */
+    var liquidGlass: Boolean get() = sp.getBoolean("liquid_glass", true)
+        set(v) { sp.edit().putBoolean("liquid_glass", v).apply(); com.oneuiclone.home.ui.LiquidGlass.enabled = v }
+    /** Blur radius (0..100) of the other blurred backgrounds (Settings › Liquid glass). */
+    var blurAppSearch: Int get() = sp.getInt("blur_app_search", 60); set(v) = sp.edit().putInt("blur_app_search", v).apply()
+    var blurHomePill: Int get() = sp.getInt("blur_home_pill", 60); set(v) = sp.edit().putInt("blur_home_pill", v).apply()
+    var blurAppDrawer: Int get() = sp.getInt("blur_app_drawer", 60); set(v) = sp.edit().putInt("blur_app_drawer", v).apply()
+    var blurFolder: Int get() = sp.getInt("blur_folder", 60); set(v) = sp.edit().putInt("blur_folder", v).apply()
+    var blurWidget: Int get() = sp.getInt("blur_widget", 60); set(v) = sp.edit().putInt("blur_widget", v).apply()
+    /** Home fills empty cells: icons close the gap an icon leaves, and slide along when one is dropped between them. */
+    var fillEmptyCells: Boolean get() = sp.getBoolean("fill_empty_cells", false); set(v) = sp.edit().putBoolean("fill_empty_cells", v).apply()
     /** Favorite contacts on the search page. */
     var searchContacts: Boolean get() = sp.getBoolean("search_contacts", true); set(v) = sp.edit().putBoolean("search_contacts", v).apply()
     /** Home screen apps: no Apps screen; every app is on a Home page. */
