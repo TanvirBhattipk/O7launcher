@@ -67,6 +67,8 @@ class Prefs(context: Context) {
      * Glass icons: themed icons whose solid plate is see-through by [glassIconTransparency] (0..100 %) over the
      * blurred wallpaper, like widgets and folders set to Style › Blur.
      */
+    /** iOS-style liquid glass on the Search pills and quick options (lens refraction, sheen, specular rim). */
+    var liquidGlass: Boolean get() = sp.getBoolean("liquid_glass", true); set(v) = sp.edit().putBoolean("liquid_glass", v).apply()
     var glassIcons: Boolean get() = sp.getBoolean("glass_icons", false); set(v) = sp.edit().putBoolean("glass_icons", v).apply()
     var glassIconTransparency: Int get() = sp.getInt("glass_icon_transparency", 50); set(v) = sp.edit().putInt("glass_icon_transparency", v).apply()
     /** Opacity of a themed icon's plate: below 1 only with glass icons on (and theme icons, which they build on). */
