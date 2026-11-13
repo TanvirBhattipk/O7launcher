@@ -37,7 +37,6 @@ abstract class OneUiPage : Activity() {
     protected val d get() = resources.displayMetrics.density
     protected fun dp(v: Float) = (v * d).toInt()
     protected lateinit var list: LinearLayout
-    protected var searchFilter: ((String) -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,86 +57,37 @@ abstract class OneUiPage : Activity() {
 
     protected var current: LinearLayout? = null
 
-    /** An extended iOS/One UI style header area matching reference image height, rounded bottom corners, and top border. */
-    protected fun appBar(title: String, searchHint: String? = null, trailing: View? = null) {
-        val headerContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(20f), dp(20f), dp(20f), dp(20f))
-            
-            // Frosted container background with rounded bottom corners and a subtle top/inner border stroke
+    /** Standard clean app bar with frosted glass styling and rounded bottom corners. */
+    protected fun appBar(title: String, trailing: View? = null) {
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12f), dp(12f), dp(12f), dp(12f))
             background = GradientDrawable().apply {
-                cornerRadii = floatArrayOf(0f, 0f, 0f, 0f, 32f * d, 32f * d, 32f * d, 32f * d)
+                cornerRadii = floatArrayOf(0f, 0f, 0f, 0f, 28f * d, 28f * d, 28f * d, 28f * d)
                 setColor(if (night) 0x331E1E1E.toInt() else 0xCCFFFFFF.toInt())
-                setStroke(dp(1f), if (night) 0x33FFFFFF.toInt() else 0x1A000000.toInt())
+                setStroke(dp(1f), if (night) 0x22FFFFFF.toInt() else 0x11000000.toInt())
             }
         }
-        
-        // Top row with back button, title, and optional close/trailing action
-        val topRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        topRow.addView(BackGlyph(this, text).apply {
+        bar.addView(BackGlyph(this, text).apply {
             contentDescription = "Navigate up"
             background = android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(if (night) 0x33FFFFFF else 0x1A000000), null, null)
             setOnClickListener { finish() }
-        }, LinearLayout.LayoutParams(dp(40f), dp(40f)))
-        
-        topRow.addView(TextView(this).apply {
+        }, LinearLayout.LayoutParams(dp(48f), dp(48f)))
+        bar.addView(TextView(this).apply {
             text = title
             setTextColor(this@OneUiPage.text)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
             typeface = Fonts.ui(this@OneUiPage, 700)
-            setPadding(dp(12f), 0, 0, 0)
+            setPadding(dp(8f), 0, 0, 0)
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        
-        trailing?.let { topRow.addView(it, LinearLayout.LayoutParams(dp(40f), dp(40f))) }
-        headerContainer.addView(topRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-
-        // Integrated pill search bar right below the header title
-        if (searchHint != null) {
-            val searchPill = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                background = GradientDrawable().apply {
-                    cornerRadius = 100f * d
-                    setColor(if (night) 0x55222222.toInt() else 0x55EBEBEF.toInt())
-                    setStroke(dp(1f), if (night) 0x22FFFFFF.toInt() else 0x11000000.toInt())
-                }
-                setPadding(dp(16f), dp(12f), dp(16f), dp(12f))
-            }
-            
-            searchPill.addView(TextView(this).apply {
-                text = "🔍"
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-                setPadding(0, 0, dp(12f), 0)
-            })
-
-            val input = EditText(this).apply {
-                hint = searchHint
-                setHintTextColor(sub)
-                setTextColor(this@OneUiPage.text)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
-                background = null
-                isSingleLine = true
-                setPadding(0, 0, 0, 0)
-                addTextChangedListener(object : TextWatcher {
-                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                        searchFilter?.invoke(s?.toString() ?: "")
-                    }
-                    override fun afterTextChanged(s: Editable?) {}
-                })
-            }
-            searchPill.addView(input, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            
-            headerContainer.addView(searchPill, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                topMargin = dp(16f)
-            })
-        }
-
-        list.addView(headerContainer, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+        trailing?.let { bar.addView(it, LinearLayout.LayoutParams(dp(48f), dp(48f))) }
+        list.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             bottomMargin = dp(16f)
         })
     }
 
+    /** One UI's back chevron. */
     private class BackGlyph(context: android.content.Context, private val ink: Int) : View(context) {
         private val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             style = android.graphics.Paint.Style.STROKE; strokeCap = android.graphics.Paint.Cap.ROUND; strokeJoin = android.graphics.Paint.Join.ROUND
@@ -218,14 +168,11 @@ abstract class OneUiPage : Activity() {
     }
 
     protected fun header(t: String) {
-        val headerView = TextView(this).apply {
-            text = t.uppercase()
-            setTextColor(sub)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            typeface = Fonts.ui(this@OneUiPage, 700)
-            setPadding(dp(28f), dp(16f), dp(28f), dp(6f))
-        }
-        list.addView(headerView)
+        current?.addView(TextView(this).apply {
+            text = t; setTextColor(primary); setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            typeface = Fonts.ui(this@OneUiPage, 600)
+            setPadding(dp(24f), dp(12f), dp(24f), dp(4f))
+        })
     }
 
     protected fun row(title: String, summary: CharSequence?, summaryColor: Int, trailing: View?, onClick: (() -> Unit)?, titleWeight: Int = 400): LinearLayout {
@@ -237,4 +184,51 @@ abstract class OneUiPage : Activity() {
             if (onClick != null) { isClickable = true; setOnClickListener { onClick() }; background = ripple() }
         }
         val texts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        texts.addView(TextView(this
+        texts.addView(TextView(this).apply {
+            text = title; setTextColor(this@OneUiPage.text); setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
+            typeface = Fonts.ui(this@OneUiPage, titleWeight)
+        })
+        if (summary != null) texts.addView(TextView(this).apply {
+            text = summary; setTextColor(summaryColor); setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            typeface = Fonts.ui(this@OneUiPage, 400)
+            setPadding(0, dp(2f), 0, 0)
+        })
+        r.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        trailing?.let { r.addView(it) }
+        current?.addView(r)
+        return r
+    }
+
+    protected fun ripple() = android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(if (night) 0x33FFFFFF else 0x1A000000), null,
+        android.graphics.drawable.ColorDrawable(Color.WHITE))
+
+    protected fun added(block: () -> Unit): List<View> {
+        val c = current ?: return emptyList()
+        val n = c.childCount
+        block()
+        return (n until c.childCount).map { c.getChildAt(it) }
+    }
+
+    protected fun item(title: String, summary: String?, onClick: () -> Unit) = row(title, summary, primary, null, onClick)
+
+    protected fun dropdown(title: String, options: List<String>, selected: Int, summaries: List<String>? = null,
+                           onPick: (Int) -> Unit): LinearLayout {
+        var chosen = selected
+        val chip = TextView(this).apply {
+            text = options[selected]
+            setTextColor(this@OneUiPage.text)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            typeface = Fonts.ui(this@OneUiPage, 500)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16f), dp(9f), dp(12f), dp(9f))
+            compoundDrawablePadding = dp(6f)
+            setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, Chevron(this@OneUiPage.text, dp(10f), d), null)
+            background = GradientDrawable().apply { cornerRadius = 100f * d; setColor(if (night) 0x552A2A2C.toInt() else 0x55EDEDF0.toInt()) }
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(12f) }
+        }
+        lateinit var r: LinearLayout
+        r = row(title, summaries?.get(selected), sub, chip, {
+            val menu = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, dp(8f), 0, dp(8f))
+                background = GradientDrawable().apply {
