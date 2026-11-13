@@ -2196,7 +2196,11 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         wallpaper.reloadIfChanged()
         // back from granting Wallpaper access (All files access): read the wallpaper now
         if (!wallpaper.available && android.os.Environment.isExternalStorageManager()) wallpaper.reload()
-        syncBlurredWallpaper()
+                syncBlurredWallpaper()
+        if (state.state == StateController.State.HOME && !state.isTransitioning && search == null && !edit.isActive && !folders.isOpen && quickOpen == null) {
+            background.set(BackgroundController.Kind.NONE, 0f)
+        }
+        // Home is showing with no close to play (a new instance after a recreate, or a return already under way
         // Home is showing with no close to play (a new instance after a recreate, or a return already under way):
         // Launchii's live wallpaper follows Home's zoom rather than a parked one.
         if (!pendingReturnAnim && com.oneuiclone.home.ui.LiveWallpaper.drives) com.oneuiclone.home.ui.LiveWallpaper.setZoom(wallpaperZoom)
