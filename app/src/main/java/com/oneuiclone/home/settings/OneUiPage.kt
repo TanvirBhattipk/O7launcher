@@ -7,13 +7,10 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
@@ -194,7 +191,15 @@ abstract class OneUiPage : Activity() {
             setPadding(0, dp(2f), 0, 0)
         })
         r.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        trailing?.let { r.addView(it) }
+        
+        val effectiveTrailing = trailing ?: if (onClick != null) {
+            android.widget.ImageView(this).apply {
+                setImageDrawable(Chevron(sub, dp(12f), d, right = true))
+                scaleType = android.widget.ImageView.ScaleType.CENTER
+            }
+        } else null
+
+        effectiveTrailing?.let { r.addView(it, LinearLayout.LayoutParams(dp(24f), dp(24f))) }
         current?.addView(r)
         return r
     }
@@ -232,3 +237,102 @@ abstract class OneUiPage : Activity() {
                 orientation = LinearLayout.VERTICAL
                 setPadding(0, dp(8f), 0, dp(8f))
                 background = GradientDrawable().apply {
+                    cornerRadius = 26f * d
+                    setColor(if (night) 0xE6252525.toInt() else 0xE6FFFFFF.toInt())
+                    setStroke(dp(1f), if (night) 0x22FFFFFF.toInt() else 0x11000000.toInt())
+                }
+            }
+            val popup = android.widget.PopupWindow(menu, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true).apply {
+                elevation = dp(8f).toFloat()
+                setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+            }
+            options.forEachIndexed { i, o ->
+                menu.addView(TextView(this).apply {
+                    text = o
+                    setTextColor(if (i == chosen) primary else this@OneUiPage.text)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                    typeface = Fonts.ui(this@OneUiPage, if (i == chosen) 600 else 400)
+                    gravity = Gravity.CENTER_VERTICAL
+                    minWidth = dp(180f)
+                    setPadding(dp(24f), 0, dp(24f), 0)
+                    background = ripple()
+                    setOnClickListener {
+                        popup.dismiss()
+                        if (i == chosen) return@setOnClickListener
+                        chosen = i
+                        chip.text = o
+                        summaries?.let { ((r.getChildAt(0) as LinearLayout).getChildAt(1) as TextView).text = it[i] }
+                        onPick(i)
+                    }
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52f)))
+            }
+            menu.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
+            val at = IntArray(2)
+            chip.getLocationOnScreen(at)
+            val bottomInset = window.decorView.rootWindowInsets?.getInsets(android.view.WindowInsets.Type.systemBars())?.bottom ?: 0
+            val roomBelow = resources.displayMetrics.heightPixels - bottomInset - (at[1] + chip.height)
+            val y = if (roomBelow >= menu.measuredHeight + dp(16f)) dp(6f) else -(chip.height + menu.measuredHeight + dp(6f))
+            popup.showAsDropDown(chip, chip.width - menu.measuredWidth, y)
+        })
+        return r
+    }
+
+    protected class Chevron(color: Int, private val sizePx: Int, density: Float, private val right: Boolean = false) : android.graphics.drawable.Drawable() {
+        private val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = color; style = android.graphics.Paint.Style.STROKE; strokeWidth = 1.8f * density
+            strokeCap = android.graphics.Paint.Cap.ROUND; strokeJoin = android.graphics.Paint.Join.ROUND
+        }
+        override fun draw(canvas: android.graphics.Canvas) {
+            val b = bounds
+            val w = b.width().toFloat(); val h = w * 0.55f
+            canvas.save()
+            if (right) canvas.rotate(-90f, b.exactCenterX(), b.exactCenterY())
+            val top = b.exactCenterY() - h / 2f
+            canvas.drawLine(b.left + 0f, top, b.exactCenterX(), top + h, p)
+            canvas.drawLine(b.exactCenterX(), top + h, b.right.toFloat(), top, p)
+            canvas.restore()
+        }
+        override fun getIntrinsicWidth() = sizePx
+        override fun getIntrinsicHeight() = sizePx
+        override fun setAlpha(alpha: Int) { p.alpha = alpha }
+        override fun setColorFilter(cf: android.graphics.ColorFilter?) { p.colorFilter = cf }
+        @Deprecated("Deprecated in Java")
+        override fun getOpacity() = android.graphics.PixelFormat.TRANSLUCENT
+    }
+
+    protected fun toggle(title: String, summary: String?, value: Boolean, onChange: (Boolean) -> Unit): LinearLayout {
+        val sw = Switch(this).apply {
+            isChecked = value
+            thumbTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(Color.WHITE, 0xFFFAFAFA.toInt()))
+            trackTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(primary, 0xFFB0B0B0.toInt()))
+            setOnCheckedChangeListener { _, c -> onChange(c) }
+        }
+        return row(title, summary, sub, sw, { sw.toggle() })
+    }
+
+    protected fun slider(title: String, value: Int, min: Int, max: Int, onLive: ((Int) -> Unit)? = null, unit: String = "%", onChange: (Int) -> Unit): SeekBar {
+        val label = row(title, "$value$unit", primary, null, null)
+        val sb = SeekBar(this).apply {
+            this.min = min; this.max = max; progress = value
+            progressTintList = ColorStateList.valueOf(primary); thumbTintList = ColorStateList.valueOf(primary)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
+                    ((label.getChildAt(0) as LinearLayout).getChildAt(1) as TextView).text = "$p$unit"
+                    if (fromUser) onLive?.invoke(p)
+                }
+                override fun onStartTrackingTouch(s: SeekBar?) {}
+                override fun onStopTrackingTouch(s: SeekBar?) { onChange(s?.progress ?: value) }
+            })
+            setPadding(dp(24f), 0, dp(24f), dp(12f))
+        }
+        current?.addView(sb)
+        return sb
+    }
+
+    protected fun choose(title: String, options: List<Pair<Int, Int>>, onPick: (Pair<Int, Int>) -> Unit) {
+        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle(title)
+            .setItems(options.map { "${it.first}×${it.second}" }.toTypedArray()) { _, i -> onPick(options[i]); build() }
+            .show()
+    }
+}
