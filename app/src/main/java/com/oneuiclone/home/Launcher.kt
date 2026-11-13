@@ -116,9 +116,15 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
     val wallpaper = com.oneuiclone.home.ui.WallpaperLayer(activity).apply { drivesLive = true }
     /** Blurred wallpaper behind widgets set to Style › Blur. */
     /** The blurred wallpaper under the search bars (Wallpaper and style › Search blur). */
-    private val barGlass = com.oneuiclone.home.ui.WidgetGlass(prefs.blurSearchBar / 100f)
-    private val widgetGlass = com.oneuiclone.home.ui.WidgetGlass().also { g ->
-        wallpaper.onLoaded = { g.rebuild(wallpaper); barGlass.rebuild(wallpaper); syncBlurredWallpaper(); background.set(background.current, background.currentProgress) }
+    private val density = activity.resources.displayMetrics.density
+    private val barGlass = com.oneuiclone.home.ui.WidgetGlass().apply { radiusPx = prefs.blurSearchBar * density }
+    private val homePillGlass = com.oneuiclone.home.ui.WidgetGlass().apply { radiusPx = prefs.blurHomePill * density }
+    private val folderGlass = com.oneuiclone.home.ui.WidgetGlass().apply { radiusPx = prefs.blurFolder * density }
+    private val widgetGlass = com.oneuiclone.home.ui.WidgetGlass().apply { radiusPx = prefs.blurWidget * density }.also { g ->
+        wallpaper.onLoaded = {
+            g.rebuild(wallpaper); barGlass.rebuild(wallpaper); homePillGlass.rebuild(wallpaper); folderGlass.rebuild(wallpaper)
+            syncBlurredWallpaper(); background.set(background.current, background.currentProgress)
+        }
     }
     val background = BackgroundController(activity, scrim, wallpaper)
     val homeLayer = FrameLayout(activity)
@@ -328,7 +334,14 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
 
     private fun setupProfile(w: Int, h: Int) {
         prefsSnapshot = snapshot()
-        barGlass.setLevel(prefs.blurSearchBar / 100f, wallpaper)
+        barGlass.setRadius(prefs.blurSearchBar * density, wallpaper)
+        homePillGlass.setRadius(prefs.blurHomePill * density, wallpaper)
+        folderGlass.setRadius(prefs.blurFolder * density, wallpaper)
+        widgetGlass.setRadius(prefs.blurWidget * density, wallpaper)
+        background.appsRadiusPx = prefs.blurAppDrawer * density
+        background.searchRadiusPx = prefs.blurAppSearch * density
+        background.folderRadiusPx = prefs.blurFolder * density
+        background.refresh()
         val newDp = DeviceProfile(w, h, activity.resources.displayMetrics.density, insets,
             homeCols = prefs.homeCols, homeRows = prefs.homeRows, appsCols = prefs.appsCols, appsRows = prefs.appsRows,
             iconScale = prefs.iconScale / 100f, labelScale = prefs.labelScale / 100f)
@@ -380,7 +393,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         homeSearch.setOnClickListener { openSearch(fromHome = true) }
         // the folders' glass at the folders' default transparency
         homeSearch.glassTransparency = com.oneuiclone.home.widgets.WidgetStyles.FOLDER_DEFAULT_TRANSPARENCY / 100f
-        homeSearch.glass = widgetGlass
+        homeSearch.glass = homePillGlass
         homeLayer.addView(homeSearch, FrameLayout.LayoutParams(homeSearch.pillWidth, homeSearch.pillHeight).apply {
             topMargin = dp.indicatorRect.top + (dp.indicatorRect.height() - homeSearch.pillHeight) / 2
         })
@@ -391,7 +404,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
                 AppUpdate.install(activity)
         }
         updatePill.glassTransparency = homeSearch.glassTransparency
-        updatePill.glass = widgetGlass
+        updatePill.glass = homePillGlass
         homeLayer.addView(updatePill, FrameLayout.LayoutParams(updatePill.pillWidth, updatePill.pillHeight).apply {
             topMargin = dp.indicatorRect.top + (dp.indicatorRect.height() - updatePill.pillHeight) / 2
         })
@@ -1023,7 +1036,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
     private fun applyFolderStyle(icon: FolderIconView, folder: HomeItem.Folder) {
         val t = com.oneuiclone.home.widgets.WidgetStyles.folderTransparency(activity, folder.id)
         icon.fillOpacity = if (t == null) 1f else 1f - t / 100f
-        icon.glass = if (t == null) null else widgetGlass
+        icon.glass = if (t == null) null else folderGlass
     }
 
     /**
@@ -2691,6 +2704,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
             // the bar has faded out: the pills are back (the Apps screen's pill fades back in as the bar leaves)
             searchPill.animate().cancel(); searchPill.alpha = 1f
             homeSearch.visibility = View.VISIBLE
+            background.searchOpen = false
             background.appsBlurScale = 1f                       // the Apps screen's own blur again
             background.set(background.current, background.currentProgress)
             removeSearch(s)
@@ -2714,8 +2728,9 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
             appsScroll.animate().alpha(0f).setDuration(200).start()
         }
         s.requestApplyInsets()
-        // the search page's background has its own blur
-        background.appsBlurScale = prefs.blurSearchBg / 100f
+        // the search page uses its own independently adjustable blur radius
+        background.searchOpen = true
+        background.appsBlurScale = 1f
         background.set(background.current, background.currentProgress)
         s.open(origin, fromAbove)
     }
@@ -2910,7 +2925,7 @@ class Launcher(val activity: LauncherActivity) : AppRepository.Listener {
         shortcutLoader.destroy()
         backdropThread.quitSafely()
         wallpaper.destroy()
-        widgetGlass.destroy(); barGlass.destroy()
+        widgetGlass.destroy(); barGlass.destroy(); homePillGlass.destroy(); folderGlass.destroy()
         repo?.destroy()
     }
 
