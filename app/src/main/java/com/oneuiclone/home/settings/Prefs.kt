@@ -8,10 +8,7 @@ class Prefs(context: Context) {
     val sp: SharedPreferences = context.getSharedPreferences("home_settings", Context.MODE_PRIVATE)
 
     // whatever reads the settings first (Home, a widget, a settings page) sets the icon shape for this process
-    init {
-        com.oneuiclone.home.icons.IconShape.current = iconShape
-        com.oneuiclone.home.ui.LiquidGlass.enabled = liquidGlass
-    }
+    init { com.oneuiclone.home.icons.IconShape.current = iconShape }
 
     var homeCols: Int get() = sp.getInt("home_cols", 4); set(v) = sp.edit().putInt("home_cols", v).apply()
     var homeRows: Int get() = sp.getInt("home_rows", 6); set(v) = sp.edit().putInt("home_rows", v).apply()
@@ -20,20 +17,6 @@ class Prefs(context: Context) {
     /** 85..115 % (Home Up range); stock small/medium/large = 90/100/110. */
     var iconScale: Int get() = sp.getInt("icon_scale", 100); set(v) = sp.edit().putInt("icon_scale", v).apply()
     /** 70..130 % of the stock app label size (Icons › Label size), on Home, the Apps screen and search. */
-    /** Blur radius (0..100 %, in steps of 10) of the search page's background and of the search bars' glass. */
-    var blurSearchBg: Int get() = sp.getInt("blur_search_bg", 100); set(v) = sp.edit().putInt("blur_search_bg", v).apply()
-    var blurSearchBar: Int get() = sp.getInt("blur_search_bar", 60); set(v) = sp.edit().putInt("blur_search_bar", v).apply()
-    /** Settings › Liquid glass: the lens refraction, vibrancy and lit rim on pills, folders and widgets. */
-    var liquidGlass: Boolean get() = sp.getBoolean("liquid_glass", true)
-        set(v) { sp.edit().putBoolean("liquid_glass", v).apply(); com.oneuiclone.home.ui.LiquidGlass.enabled = v }
-    /** Blur radius in dp (0..100) for each independent Liquid glass surface (Settings › Liquid glass). */
-    var blurAppSearch: Int get() = sp.getInt("blur_app_search", 60); set(v) = sp.edit().putInt("blur_app_search", v).apply()
-    var blurHomePill: Int get() = sp.getInt("blur_home_pill", 60); set(v) = sp.edit().putInt("blur_home_pill", v).apply()
-    var blurAppDrawer: Int get() = sp.getInt("blur_app_drawer", 60); set(v) = sp.edit().putInt("blur_app_drawer", v).apply()
-    var blurFolder: Int get() = sp.getInt("blur_folder", 60); set(v) = sp.edit().putInt("blur_folder", v).apply()
-    var blurWidget: Int get() = sp.getInt("blur_widget", 60); set(v) = sp.edit().putInt("blur_widget", v).apply()
-    /** Home fills empty cells: icons close the gap an icon leaves, and slide along when one is dropped between them. */
-    var fillEmptyCells: Boolean get() = sp.getBoolean("fill_empty_cells", false); set(v) = sp.edit().putBoolean("fill_empty_cells", v).apply()
     /** Favorite contacts on the search page. */
     var searchContacts: Boolean get() = sp.getBoolean("search_contacts", true); set(v) = sp.edit().putBoolean("search_contacts", v).apply()
     /** Home screen apps: no Apps screen; every app is on a Home page. */
@@ -56,6 +39,17 @@ class Prefs(context: Context) {
      * screen (overrides [swipeDownNotifications] and [swipeUpSearch]); off by default.
      */
     var swipeDownSearch: Boolean get() = sp.getBoolean("swipe_down_search", false); set(v) = sp.edit().putBoolean("swipe_down_search", v).apply()
+    /** Home screen: an icon dropped between others slides them along, and the gap an icon leaves is closed by the next icons. */
+    var fillEmptyCells: Boolean get() = sp.getBoolean("fill_empty_cells", true); set(v) = sp.edit().putBoolean("fill_empty_cells", v).apply()
+    /** Settings › Liquid glass: refraction, vibrancy and a lit rim on the blurred glass (pills, folders, widgets). */
+    var liquidGlass: Boolean get() = sp.getBoolean("liquid_glass", true); set(v) = sp.edit().putBoolean("liquid_glass", v).apply()
+    /** Settings › Liquid glass: the blur radius, in dp, of each blurred background. */
+    var blurAppSearch: Int get() = sp.getInt("blur_app_search", 72); set(v) = sp.edit().putInt("blur_app_search", v).apply()
+    var blurHomePill: Int get() = sp.getInt("blur_home_pill", 40); set(v) = sp.edit().putInt("blur_home_pill", v).apply()
+    var blurAppDrawer: Int get() = sp.getInt("blur_app_drawer", 72); set(v) = sp.edit().putInt("blur_app_drawer", v).apply()
+    var blurSearchBar: Int get() = sp.getInt("blur_search_bar", 40); set(v) = sp.edit().putInt("blur_search_bar", v).apply()
+    var blurFolder: Int get() = sp.getInt("blur_folder", 40); set(v) = sp.edit().putInt("blur_folder", v).apply()
+    var blurWidget: Int get() = sp.getInt("blur_widget", 40); set(v) = sp.edit().putInt("blur_widget", v).apply()
     var lockLayout: Boolean get() = sp.getBoolean("lock_layout", false); set(v) = sp.edit().putBoolean("lock_layout", v).apply()
     var addNewApps: Boolean get() = sp.getBoolean("add_new_apps", false); set(v) = sp.edit().putBoolean("add_new_apps", v).apply()
     var themedIcons: Boolean get() = sp.getBoolean("themed_icons", false); set(v) = sp.edit().putBoolean("themed_icons", v).apply()
