@@ -89,6 +89,11 @@ class WallpaperStyleActivity : OneUiPage() {
             row("Change wallpapers", null, primary, null, { pickPhoto() }, titleWeight = 600)
         }
         card {
+            header("Search blur")
+            slider("Search background blur", prefs.blurSearchBg, 0, 100, step = 10) { prefs.blurSearchBg = it }
+            slider("Search bar blur", prefs.blurSearchBar, 0, 100, step = 10) { prefs.blurSearchBar = it }
+        }
+        card {
             row("Colour palette", "Choose a palette based on colours from your wallpaper.", sub,
                 Swatch(this@WallpaperStyleActivity).apply { layoutParams = LinearLayout.LayoutParams(dp(34f), dp(56f)).apply { marginStart = dp(16f) } },
                 { openColours() }, titleWeight = 600)

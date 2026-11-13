@@ -297,14 +297,19 @@ abstract class OneUiPage : Activity() {
     }
 
     /** [onChange] when let go; [onLive] (if given) on every step, for previews. */
-    protected fun slider(title: String, value: Int, min: Int, max: Int, onLive: ((Int) -> Unit)? = null, unit: String = "%", onChange: (Int) -> Unit): SeekBar {
-        val label = row(title, "$value$unit", primary, null, null)
+    protected fun slider(title: String, value: Int, min: Int, max: Int, onLive: ((Int) -> Unit)? = null, step: Int = 1, onChange: (Int) -> Unit): SeekBar {
+        val label = row(title, "$value%", primary, null, null)
         val sb = SeekBar(this).apply {
             this.min = min; this.max = max; progress = value
             progressTintList = ColorStateList.valueOf(primary); thumbTintList = ColorStateList.valueOf(primary)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
-                    ((label.getChildAt(0) as LinearLayout).getChildAt(1) as TextView).text = "$p$unit"
+                    if (fromUser && step > 1) {
+                        // in steps (10%, say): snap to the nearest one
+                        val q = ((p - min + step / 2) / step) * step + min
+                        if (q != p) { s?.progress = q; onLive?.invoke(q); return }
+                    }
+                    ((label.getChildAt(0) as LinearLayout).getChildAt(1) as TextView).text = "$p%"
                     if (fromUser) onLive?.invoke(p)
                 }
                 override fun onStartTrackingTouch(s: SeekBar?) {}
