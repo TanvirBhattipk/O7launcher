@@ -82,6 +82,10 @@ class SettingsActivity : OneUiPage() {
             item("Wallpaper and style", "Wallpaper, blur and colour palette, with a preview") {
                 startActivity(Intent(this@SettingsActivity, WallpaperStyleActivity::class.java))
             }
+            toggle("Liquid glass", "iOS-style glass on the Search pills and quick options", prefs.liquidGlass) { prefs.liquidGlass = it }
+            item("Glass playground", "Drag, pinch and rotate a glass pane; tune refraction, blur and corners") {
+                startActivity(Intent(this@SettingsActivity, GlassPlaygroundActivity::class.java))
+            }
             item("Icons", "Icon shape, theme, size and labels") {
                 startActivity(Intent(this@SettingsActivity, IconThemeActivity::class.java))
             }

@@ -69,6 +69,14 @@ class Prefs(context: Context) {
      */
     /** iOS-style liquid glass on the Search pills and quick options (lens refraction, sheen, specular rim). */
     var liquidGlass: Boolean get() = sp.getBoolean("liquid_glass", true); set(v) = sp.edit().putBoolean("liquid_glass", v).apply()
+    /** The Glass playground's settings, which the glass surfaces use. */
+    var glassParams: com.oneuiclone.home.ui.GlassParams
+        get() = com.oneuiclone.home.ui.GlassParams(
+            sp.getFloat("glass_corner", 0.5f), sp.getFloat("glass_blur", 0f), sp.getFloat("glass_ref_height", 0.2f),
+            sp.getFloat("glass_ref_amount", 0.2f), sp.getFloat("glass_chromatic", 0f))
+        set(v) = sp.edit().putFloat("glass_corner", v.cornerRadius).putFloat("glass_blur", v.blurDp)
+            .putFloat("glass_ref_height", v.refractionHeight).putFloat("glass_ref_amount", v.refractionAmount)
+            .putFloat("glass_chromatic", v.chromaticAberration).apply()
     var glassIcons: Boolean get() = sp.getBoolean("glass_icons", false); set(v) = sp.edit().putBoolean("glass_icons", v).apply()
     var glassIconTransparency: Int get() = sp.getInt("glass_icon_transparency", 50); set(v) = sp.edit().putInt("glass_icon_transparency", v).apply()
     /** Opacity of a themed icon's plate: below 1 only with glass icons on (and theme icons, which they build on). */
