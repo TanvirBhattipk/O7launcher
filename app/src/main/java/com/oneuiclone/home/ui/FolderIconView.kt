@@ -52,7 +52,6 @@ open class FolderIconView(context: Context, dp: DeviceProfile) : IconView(contex
     var fillOpacity = 1f
         set(v) { field = v; invalidate() }
     private val glassPaint = GlassPaint()
-    private val liquid = LiquidGlass(context)
     private val liquidRect = RectF()
     private val toWindow = Matrix()
     private val drawnAt = Matrix()
@@ -111,11 +110,11 @@ open class FolderIconView(context: Context, dp: DeviceProfile) : IconView(contex
         canvas.drawPath(shape, rimPaint)
         drawnAt.reset(); transformMatrixToGlobal(drawnAt)
         glassAt.set(drawnAt); glassAt.preTranslate(left.toFloat(), top.toFloat())
-        if (liquid.enabled && glass?.bitmap != null) {
+        if (LiquidGlass.enabled && glass?.bitmap != null) {
             // liquid glass: the blurred wallpaper refracted at the squircle's edge (blur only, no highlight)
             liquidRect.set(0f, 0f, iconSize.toFloat(), iconSize.toFloat())
             canvas.save(); canvas.clipPath(shape)
-            liquid.drawBase(canvas, liquidRect, iconSize * 0.3f, glass, glassAt, 0, containerAlpha)
+            LiquidGlass.drawBase(canvas, liquidRect, iconSize * 0.3f, glass, glassAt, 0, containerAlpha)
             canvas.restore()
         } else if (glassPaint.aim(glass, glassAt)) {
             glassPaint.paint.alpha = (255 * containerAlpha).toInt()
