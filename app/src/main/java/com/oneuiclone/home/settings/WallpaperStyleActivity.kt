@@ -90,7 +90,7 @@ class WallpaperStyleActivity : OneUiPage() {
         }
         card {
             header("Search blur")
-            slider("Search background blur", prefs.blurSearchBg, 0, 100, step = 10) { prefs.blurSearchBg = it }
+            slider("App search background blur", prefs.blurAppSearch, 0, 100, step = 10) { prefs.blurAppSearch = it }
             slider("Search bar blur", prefs.blurSearchBar, 0, 100, step = 10) { prefs.blurSearchBar = it }
         }
         card {

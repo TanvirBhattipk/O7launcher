@@ -26,7 +26,7 @@ class Prefs(context: Context) {
     /** Settings › Liquid glass: the lens refraction, vibrancy and lit rim on pills, folders and widgets. */
     var liquidGlass: Boolean get() = sp.getBoolean("liquid_glass", true)
         set(v) { sp.edit().putBoolean("liquid_glass", v).apply(); com.oneuiclone.home.ui.LiquidGlass.enabled = v }
-    /** Blur radius (0..100) of the other blurred backgrounds (Settings › Liquid glass). */
+    /** Blur radius in dp (0..100) for each independent Liquid glass surface (Settings › Liquid glass). */
     var blurAppSearch: Int get() = sp.getInt("blur_app_search", 60); set(v) = sp.edit().putInt("blur_app_search", v).apply()
     var blurHomePill: Int get() = sp.getInt("blur_home_pill", 60); set(v) = sp.edit().putInt("blur_home_pill", v).apply()
     var blurAppDrawer: Int get() = sp.getInt("blur_app_drawer", 60); set(v) = sp.edit().putInt("blur_app_drawer", v).apply()
