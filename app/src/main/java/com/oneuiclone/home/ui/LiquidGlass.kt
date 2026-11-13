@@ -1,13 +1,22 @@
 package com.oneuiclone.home.ui
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapShader
 import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.ColorFilter
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.LinearGradient
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.RectF
 import android.graphics.RuntimeShader
 import android.graphics.Shader
 import android.os.Build
+import com.oneuiclone.home.settings.Prefs
+import kotlin.math.max
 import kotlin.math.min
 
 /**
@@ -116,6 +125,136 @@ half4 main(float2 coord) {
     rgb = mix(rgb, half3(1.0), half(clamp(spec, 0.0, 1.0)));
 
     return half4(rgb * half(mask), half(mask));
+}"""
+    }
+}
+
+/**
+ * The specular rim of liquid glass: a hairline stroke inside a rounded rectangle, brightest toward the top left and
+ * softer toward the bottom right.
+ */
+class LiquidRim {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val inner = RectF()
+    private var shaderRect = RectF()
+
+    fun draw(canvas: Canvas, rect: RectF, radius: Float, width: Float) {
+        if (width <= 0f || rect.width() <= 0f || rect.height() <= 0f) return
+        if (paint.shader == null || shaderRect != rect) {
+            shaderRect.set(rect)
+            paint.shader = LinearGradient(
+                rect.left, rect.top, rect.right, rect.bottom,
+                intArrayOf(0xE6FFFFFF.toInt(), 0x1FFFFFFF, 0x1FFFFFFF, 0x8CFFFFFF.toInt()),
+                floatArrayOf(0f, 0.35f, 0.65f, 1f), Shader.TileMode.CLAMP,
+            )
+        }
+        paint.strokeWidth = width
+        inner.set(rect); inner.inset(width / 2f, width / 2f)
+        val r = max(0f, radius - width / 2f)
+        canvas.drawRoundRect(inner, r, r, paint)
+    }
+}
+
+/**
+ * Liquid glass for views that draw their own glass (folders, quick options): [enabled] says whether the Liquid glass
+ * setting is on and the device can run the lens shader. The shared pieces (shader source, sizes, vibrancy) live in
+ * the companion for [GlassPaint] and the pills.
+ */
+class LiquidGlass(context: Context) {
+    private val density = context.resources.displayMetrics.density
+    private val glassPaint = GlassPaint()
+    private val tintPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val sheen = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val rim = LiquidRim()
+    private var sheenW = -1f
+    private var sheenH = -1f
+
+    init { Prefs(context) }          // brings the companion's [enabled] in line with the setting
+
+    val enabled: Boolean get() = Companion.enabled && Build.VERSION.SDK_INT >= 33
+
+    /**
+     * The blurred wallpaper [glass] (placed in the window by [toWindow]) refracted at the edge of the round rect
+     * [rect] (corner [radius]), at [alpha], with [tint] (an ARGB colour, 0 for none) over it. No highlight.
+     */
+    fun drawBase(canvas: Canvas, rect: RectF, radius: Float, glass: WidgetGlass?, toWindow: Matrix, tint: Int, alpha: Float) {
+        if (!glassPaint.aimLiquid(canvas, glass, toWindow, rect, radius, density)) return
+        glassPaint.paint.alpha = (255 * alpha).toInt().coerceIn(0, 255)
+        canvas.drawRoundRect(rect, radius, radius, glassPaint.paint)
+        if (Color.alpha(tint) != 0) {
+            tintPaint.color = tint
+            tintPaint.alpha = (Color.alpha(tint) * alpha).toInt().coerceIn(0, 255)
+            canvas.drawRoundRect(rect, radius, radius, tintPaint)
+        }
+    }
+
+    /** A soft sheen from the top left and the specular rim over the round rect [rect] (corner [radius]). */
+    fun drawChrome(canvas: Canvas, rect: RectF, radius: Float, night: Boolean) {
+        if (rect.width() <= 0f || rect.height() <= 0f) return
+        if (sheenW != rect.width() || sheenH != rect.height() || sheen.shader == null) {
+            sheenW = rect.width(); sheenH = rect.height()
+            sheen.shader = LinearGradient(
+                rect.left, rect.top, rect.right, rect.bottom,
+                if (night) 0x1FFFFFFF else 0x59FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP,
+            )
+        }
+        canvas.drawRoundRect(rect, radius, radius, sheen)
+        rim.draw(canvas, rect, radius, RIM_DP * density)
+    }
+
+    companion object {
+        /** Settings › Liquid glass › Liquid glass effect; kept in step by [Prefs]. */
+        @Volatile var enabled = false
+
+        const val REFRACTION_DP = 12f
+        const val AMOUNT_DP = 16f
+        const val RIM_DP = 1.2f
+
+        /** Kyant's `vibrancy()`: saturation 1.5. */
+        val vibrancy: ColorFilter = saturationFilter(1.5f)
+
+        fun saturationFilter(saturation: Float): ColorFilter =
+            ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(saturation) })
+
+        /** Whether the lens shader can run on [canvas]. */
+        fun usable(canvas: Canvas) = enabled && Build.VERSION.SDK_INT >= 33 && canvas.isHardwareAccelerated
+
+        /**
+         * AGSL lens for [GlassPaint.aimLiquid]: inside [refractionHeight] of the edge of the rounded rectangle
+         * ([center], [halfSize], [radius]) the content is sampled from further in (a negative [refractionAmount]).
+         */
+        const val REFRACT = """
+uniform shader content;
+uniform float2 center;
+uniform float2 halfSize;
+uniform float radius;
+uniform float refractionHeight;
+uniform float refractionAmount;
+
+float sdRoundedRect(float2 p, float2 hs, float r) {
+    float2 q = abs(p) - (hs - float2(r));
+    return length(max(q, float2(0.0))) - r + min(max(q.x, q.y), 0.0);
+}
+
+float2 gradSdRoundedRect(float2 p, float2 hs, float r) {
+    float2 q = abs(p) - (hs - float2(r));
+    if (q.x >= 0.0 || q.y >= 0.0) {
+        return sign(p) * normalize(max(q, float2(0.0)) + float2(0.00001));
+    }
+    float gx = step(q.y, q.x);
+    return sign(p) * float2(gx, 1.0 - gx);
+}
+
+half4 main(float2 coord) {
+    float2 p = coord - center;
+    float r = min(radius, min(halfSize.x, halfSize.y));
+    float sd = sdRoundedRect(p, halfSize, r);
+    if (refractionHeight <= 0.0 || -sd >= refractionHeight) return content.eval(coord);
+    sd = min(sd, 0.0);
+    float x = 1.0 - (-sd) / refractionHeight;
+    float d = (1.0 - sqrt(max(1.0 - x * x, 0.0))) * refractionAmount;
+    float2 grad = gradSdRoundedRect(p, halfSize, min(r * 1.5, min(halfSize.x, halfSize.y)));
+    return content.eval(coord + d * grad);
 }"""
     }
 }

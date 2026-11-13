@@ -34,6 +34,11 @@ class DrawerScrollView(context: Context, private val dp: DeviceProfile) : Scroll
     private var last = 0L
     private val tick = Runnable { step() }
 
+    /** Called once per gesture when the list is pulled down past its top: the Apps screen closes. */
+    var onPullToClose: (() -> Unit)? = null
+    private var topPull = 0f
+    private var closed = false
+
     init {
         overScrollMode = OVER_SCROLL_NEVER                      // the stretch is drawn below
     }
@@ -41,7 +46,7 @@ class DrawerScrollView(context: Context, private val dp: DeviceProfile) : Scroll
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(ev: MotionEvent): Boolean {
         when (ev.actionMasked) {
-            MotionEvent.ACTION_DOWN -> touching = true
+            MotionEvent.ACTION_DOWN -> { touching = true; topPull = 0f; closed = false }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { touching = false; start() }   // let the stretch spring back
         }
         return super.onTouchEvent(ev)
@@ -52,6 +57,11 @@ class DrawerScrollView(context: Context, private val dp: DeviceProfile) : Scroll
         maxOverScrollX: Int, maxOverScrollY: Int, isTouchEvent: Boolean,
     ): Boolean {
         if (isTouchEvent) {
+            // a pull down with the list already at its top closes the Apps screen
+            if (scrollY <= 0 && deltaY < 0) {
+                topPull -= deltaY
+                if (!closed && topPull > dp.dp(48f)) { closed = true; onPullToClose?.invoke() }
+            } else if (deltaY > 0) topPull = 0f
             // only the bottom stretches under the finger; at the top the list just stops
             if (scrollY >= scrollRangeY && (deltaY > 0 || pull < 0f)) pull = min(0f, pull - deltaY)
             pull = pull.coerceIn(-maxPull, 0f)
