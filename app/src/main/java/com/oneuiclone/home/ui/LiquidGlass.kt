@@ -25,7 +25,7 @@ object LiquidGlass {
     /** Lens height, lens strength and rim width, in dp (the library's LiquidButton uses 12 and 24). */
     const val REFRACTION_DP = 12f
     const val AMOUNT_DP = 24f
-    const val RIM_DP = 0.75f
+    const val RIM_DP = 0.5f
 
     /** Vibrancy: the glass is made more colourful (the library's saturation 1.5). */
     val vibrancy = ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(1.5f) })
@@ -59,7 +59,7 @@ object LiquidGlass {
 
     /** Draws the specular liquid rim highlight over a popup card for QuickOptionPopup. */
     fun drawChrome(canvas: Canvas, rect: RectF, radius: Float, night: Boolean) {
-        val rimWidth = RIM_DP * 1.5f
+        val rimWidth = RIM_DP * 1.0f
         val strength = if (night) 0.55f else 0.75f
         chromeRim.draw(canvas, rect, radius, rimWidth, strength)
     }
