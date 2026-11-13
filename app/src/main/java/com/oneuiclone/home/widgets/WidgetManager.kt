@@ -283,7 +283,7 @@ class WidgetManager(private val activity: Activity) {
             for (v in targets) {
                 val d = (if (v is ImageView) v.drawable else v.background) ?: continue
                 if (!styled) { if (d is GlassDrawable) setDrawable(v, d.drawable!!); continue }
-                val g = d as? GlassDrawable ?: GlassDrawable(d, v).also { setDrawable(v, null); setDrawable(v, it) }
+                val g = d as? GlassDrawable ?: GlassDrawable(d, v, this).also { setDrawable(v, null); setDrawable(v, it) }
                 g.update(backgroundOpacity, glass)
                 wrapped += g
             }
@@ -572,7 +572,9 @@ class WidgetManager(private val activity: Activity) {
      * background's own pixels (its shape, corners and edge), and placed in window coordinates so it lines up with
      * the real wallpaper. Layers, so overlapping parts of the background don't add up.
      */
-    private class GlassDrawable(inner: Drawable, private val owner: View) : DrawableWrapper(inner) {
+    private class GlassDrawable(inner: Drawable, private val owner: View, private val host: View) : DrawableWrapper(inner) {
+        private val rim = com.oneuiclone.home.ui.LiquidRim()
+        private val box = android.graphics.RectF()
         private var opacity = 1f
         private var glass: WidgetGlass? = null
         private val toWindow = Matrix()
@@ -606,16 +608,23 @@ class WidgetManager(private val activity: Activity) {
             val r = bounds.right.toFloat(); val b = bounds.bottom.toFloat()
             drawnBitmap = glass?.bitmap
             locate(drawnAt)
-            if (glassPaint.aim(glass, drawnAt)) {
+            // the widget's own background (not a card inside it) gets liquid glass in the widget's 26dp corners
+            val density = owner.resources.displayMetrics.density
+            val whole = host.width > 0 && (r - l) >= host.width * 0.9f && (b - t) >= host.height * 0.9f
+            box.set(l, t, r, b)
+            val aimed = if (whole) glassPaint.aimLiquid(canvas, glass, drawnAt, box, 26f * density, density) else glassPaint.aim(glass, drawnAt)
+            if (aimed) {
                 val sc = canvas.saveLayer(l, t, r, b, null)
                 super.draw(canvas)                                       // the mask: the background itself
                 canvas.drawRect(l, t, r, b, glassPaint.paint)
                 canvas.restoreToCount(sc)
             }
-            if (opacity <= 0f) return
-            val sc = canvas.saveLayerAlpha(l, t, r, b, (opacity * 255).roundToInt())
-            super.draw(canvas)
-            canvas.restoreToCount(sc)
+            if (opacity > 0f) {
+                val sc = canvas.saveLayerAlpha(l, t, r, b, (opacity * 255).roundToInt())
+                super.draw(canvas)
+                canvas.restoreToCount(sc)
+            }
+            if (whole && glass != null) rim.draw(canvas, box, 26f * density, com.oneuiclone.home.ui.LiquidGlass.RIM_DP * density)
         }
     }
 }
