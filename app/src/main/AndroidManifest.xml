@@ -108,6 +108,15 @@
             android:label="Home Style"
             android:taskAffinity="app.launchii.settings"
             android:theme="@android:style/Theme.DeviceDefault.DayNight" />
+        <!-- Home screen settings › Glass playground -->
+        <activity
+            android:name=".settings.GlassPlaygroundActivity"
+            android:autoRemoveFromRecents="true"
+            android:exported="false"
+            android:label="Glass playground"
+            android:taskAffinity="app.launchii.settings"
+            android:theme="@android:style/Theme.DeviceDefault.DayNight" />
+
         <!-- Home screen edit mode › Icons -->
         <activity
             android:name=".settings.IconThemeActivity"
