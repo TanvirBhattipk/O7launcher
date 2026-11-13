@@ -424,8 +424,6 @@ class FolderController(
         }
         private val glass = src.glass
         private val glassPaint = GlassPaint()
-        private val liquid = LiquidGlass(context)
-        private val rectF = android.graphics.RectF()
         private val toWindow = android.graphics.Matrix()
         private val path = android.graphics.Path()
         override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -435,12 +433,7 @@ class FolderController(
         fun moved() { if (glass != null) invalidate() }
         override fun onDraw(canvas: Canvas) {
             toWindow.reset(); transformMatrixToGlobal(toWindow)
-            if (liquid.enabled && glass?.bitmap != null) {
-                rectF.set(0f, 0f, width.toFloat(), height.toFloat())
-                canvas.save(); canvas.clipPath(path)
-                liquid.drawBase(canvas, rectF, width * 0.3f, glass, toWindow)
-                canvas.restore()
-            } else if (glassPaint.aim(glass, toWindow)) canvas.drawPath(path, glassPaint.paint)
+            if (glassPaint.aim(glass, toWindow)) canvas.drawPath(path, glassPaint.paint)
             canvas.drawPath(path, paint)
         }
     }

@@ -152,7 +152,6 @@ class AppsSearch(
     private lateinit var origin: Origin
     /** Glass drawn under the pill's fill while it morphs ([Origin.glass]). */
     private var pillGlass: WidgetGlass? = null
-    private val liquid = LiquidGlass(context)
 
     /**
      * The pill's background: [pillGlass] (fixed to the window, like the Home pill it grows from) in the pill's shape,
@@ -160,19 +159,22 @@ class AppsSearch(
      */
     private inner class GlassPill : android.graphics.drawable.DrawableWrapper(pillBg) {
         private val glassPaint = GlassPaint()
+        private val rim = LiquidRim()
         private val toWindow = android.graphics.Matrix()
         private val rect = RectF()
         override fun draw(canvas: android.graphics.Canvas) {
             pillGlass?.let { g ->
                 toWindow.reset(); pill.transformMatrixToGlobal(toWindow)
                 rect.set(bounds)
-                if (liquid.enabled) liquid.drawBase(canvas, rect, pillBg.cornerRadius, g, toWindow, 0, barOpacity)
-                else if (glassPaint.aim(g, toWindow)) {
+                if (glassPaint.aimLiquid(canvas, g, toWindow, rect, pillBg.cornerRadius, dp.dp(1f))) {
                     glassPaint.paint.alpha = (255 * barOpacity).toInt()
                     canvas.drawRoundRect(rect, pillBg.cornerRadius, pillBg.cornerRadius, glassPaint.paint)
                 }
             }
             super.draw(canvas)
+            if (pillGlass != null && LiquidGlass.enabled) {                // the lit rim of the liquid glass
+                rim.draw(canvas, rect.apply { set(bounds) }, pillBg.cornerRadius, dp.dp(LiquidGlass.RIM_DP), 0.75f * barOpacity)
+            }
         }
     }
     var isOpen = false; private set
@@ -795,7 +797,7 @@ class AppsSearch(
         pillBg.cornerRadius = h / 2f
         // the same light glass as the Apps screen's search bar (the pill it grows from): its tint, border and ink
         pillBg.setColor(withOpacity(o.fill))
-        pillBg.setStroke(dp.dpi(1f), withOpacity(o.stroke))
+        pillBg.setStroke(dp.dpi(if (o.glass != null && LiquidGlass.enabled) 1.5f else 1f), withOpacity(o.stroke))   // a slightly thick border with liquid glass
         pillGlass = if (o.glass != null) (barGlass ?: o.glass) else null
         val ink = o.ink ?: colors.hint
         glyph.color = ink

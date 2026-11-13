@@ -43,6 +43,18 @@ class BackgroundController(
     /** 1 = the Apps screen's full blur and dimming. */
     var appsBlurScale = 1f
 
+    /** Settings › Liquid glass: the blur radius (px) of the Apps screen's background, and of the search page's. */
+    var appsRadiusPx = maxRadiusPx
+    var searchRadiusPx = maxRadiusPx
+    /** The search page is open: the Apps screen's background is then blurred by [searchRadiusPx]. */
+    var searchOpen = false
+
+    /** Applies the background again (after a radius or [searchOpen] changed). */
+    fun refresh() = apply()
+
+    private fun radiusOf(k: Kind): Float =
+        if (k == Kind.APPS || k == Kind.APPS_FOLDER) k.blurFactor * (if (searchOpen) searchRadiusPx else appsRadiusPx) else k.blurFactor * maxRadiusPx
+
     private fun dimOf(k: Kind) = if (k == Kind.APPS || k == Kind.APPS_FOLDER) k.dim * appsBlurScale else k.dim
 
     private fun factor(k: Kind) = if (k == Kind.APPS || k == Kind.APPS_FOLDER) k.blurFactor * appsBlurScale else k.blurFactor
@@ -86,14 +98,16 @@ class BackgroundController(
         if (wallpaper.available) {
             // launcher-drawn wallpaper: exact One UI pipeline (blur + colour curve), dim on top
             if (lastRadius != 0) { activity.window.setBackgroundBlurRadius(0); lastRadius = 0 }
-            wallpaper.maxBlurRadiusPx = maxRadiusPx
-            wallpaper.setBlur(blur)
+            val radiusPx = p * radiusOf(kind) + q * radiusOf(from)
+            val reach = maxOf(maxRadiusPx, appsRadiusPx, searchRadiusPx)
+            wallpaper.maxBlurRadiusPx = reach
+            wallpaper.setBlur(if (reach > 0f) radiusPx / reach else 0f)
             scrim.curveAlpha = 0f
             scrim.dimAlpha = dim * 0xA6 / 255f
             scrim.invalidate()
             return
         }
-        val radius = if (blurEnabled) (blur * maxRadiusPx).roundToInt() else 0
+        val radius = if (blurEnabled) (p * radiusOf(kind) + q * radiusOf(from)).roundToInt() else 0
         if (radius != lastRadius) {
             activity.window.setBackgroundBlurRadius(radius)
             lastRadius = radius
