@@ -43,7 +43,6 @@ class SearchPill(context: Context, private val dp: DeviceProfile, private val hi
     }
     private val dots = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val rect = RectF()
-    private val liquid = LiquidGlass(context, onChange = { invalidate() })
     private val inset = dp.dp(0.5f)
 
     /** The blurred wallpaper behind the pill (as the Home screen's Search button has it); null for none. */
@@ -66,6 +65,7 @@ class SearchPill(context: Context, private val dp: DeviceProfile, private val hi
     private fun scaled(c: Int) = (c and 0x00FFFFFF) or ((android.graphics.Color.alpha(c) * backgroundOpacity).toInt() shl 24)
 
     private val glassPaint = GlassPaint()
+    private val rim = LiquidRim()
     private val toWindow = Matrix()
     private val drawnAt = Matrix()
     private val moved = ViewTreeObserver.OnPreDrawListener {
@@ -79,16 +79,6 @@ class SearchPill(context: Context, private val dp: DeviceProfile, private val hi
     init {
         isClickable = true
         applyColors()
-    }
-
-    @android.annotation.SuppressLint("ClickableViewAccessibility")
-    override fun onTouchEvent(event: android.view.MotionEvent): Boolean {
-        if (!menuIcon) when (event.actionMasked) {
-            android.view.MotionEvent.ACTION_DOWN -> liquid.pressDown(event.x, event.y)
-            android.view.MotionEvent.ACTION_MOVE -> liquid.pressMove(event.x, event.y)
-            android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> liquid.pressUp()
-        }
-        return super.onTouchEvent(event)
     }
 
     override fun onAttachedToWindow() {
@@ -135,21 +125,19 @@ class SearchPill(context: Context, private val dp: DeviceProfile, private val hi
             for (i in -1..1) canvas.drawCircle(cx, cy + i * dp.dp(6f), dp.dp(2.2f), dots)
             return
         }
-        rect.set(inset, inset, width - inset, height - inset)
+        val liquid = glass != null && LiquidGlass.enabled
+        val gap = if (liquid) dp.dp(0.8f) else inset
+        rect.set(gap, gap, width - gap, height - gap)
         val r = rect.height() / 2f
         drawnAt.reset(); transformMatrixToGlobal(drawnAt)
-        if (liquid.enabled) {
-            liquid.drawBase(canvas, rect, r, glass, drawnAt, baseFill, backgroundOpacity)
-            liquid.drawChrome(canvas, rect, r, SearchColors.of(context) === SearchColors.dark(), backgroundOpacity)
-            canvas.drawRoundRect(rect, r, r, border)
-        } else {
-            if (glassPaint.aim(glass, drawnAt)) {
-                glassPaint.paint.alpha = (255 * backgroundOpacity).toInt()
-                canvas.drawRoundRect(rect, r, r, glassPaint.paint)
-            }
-            canvas.drawRoundRect(rect, r, r, fill)
-            canvas.drawRoundRect(rect, r, r, border)
+        if (glassPaint.aimLiquid(canvas, glass, drawnAt, rect, r, dp.dp(1f))) {
+            glassPaint.paint.alpha = (255 * backgroundOpacity).toInt()
+            canvas.drawRoundRect(rect, r, r, glassPaint.paint)
         }
+        canvas.drawRoundRect(rect, r, r, fill)
+        border.strokeWidth = dp.dp(if (liquid) 1.5f else 1f)                   // a slightly thick border with liquid glass
+        canvas.drawRoundRect(rect, r, r, border)
+        if (liquid) rim.draw(canvas, rect, r, dp.dp(LiquidGlass.RIM_DP), 0.75f * backgroundOpacity)
         // magnifier glyph (24dp box)
         val box = dp.dp(24f)
         val gx = dp.dp(16f)
