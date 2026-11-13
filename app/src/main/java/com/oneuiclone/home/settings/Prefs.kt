@@ -7,8 +7,13 @@ import android.content.SharedPreferences
 class Prefs(context: Context) {
     val sp: SharedPreferences = context.getSharedPreferences("home_settings", Context.MODE_PRIVATE)
 
-    // whatever reads the settings first (Home, a widget, a settings page) sets the icon shape for this process
-    init { com.oneuiclone.home.icons.IconShape.current = iconShape }
+    // whatever reads the settings first (Home, a widget, a settings page) sets the icon shape and glass values for this process
+    init {
+        com.oneuiclone.home.icons.IconShape.current = iconShape
+        com.oneuiclone.home.ui.LiquidGlass.enabled = liquidGlass
+        com.oneuiclone.home.ui.LiquidGlass.refractionHeightDp = refractionHeight.toFloat()
+        com.oneuiclone.home.ui.LiquidGlass.refractionAmountDp = refractionAmount.toFloat()
+    }
 
     var homeCols: Int get() = sp.getInt("home_cols", 4); set(v) = sp.edit().putInt("home_cols", v).apply()
     var homeRows: Int get() = sp.getInt("home_rows", 6); set(v) = sp.edit().putInt("home_rows", v).apply()
@@ -16,7 +21,6 @@ class Prefs(context: Context) {
     var appsRows: Int get() = sp.getInt("apps_rows", 6); set(v) = sp.edit().putInt("apps_rows", v).apply()
     /** 85..115 % (Home Up range); stock small/medium/large = 90/100/110. */
     var iconScale: Int get() = sp.getInt("icon_scale", 100); set(v) = sp.edit().putInt("icon_scale", v).apply()
-    /** 70..130 % of the stock app label size (Icons › Label size), on Home, the Apps screen and search. */
     /** Favorite contacts on the search page. */
     var searchContacts: Boolean get() = sp.getBoolean("search_contacts", true); set(v) = sp.edit().putBoolean("search_contacts", v).apply()
     /** Home screen apps: no Apps screen; every app is on a Home page. */
@@ -30,7 +34,6 @@ class Prefs(context: Context) {
     var homeLabels: Boolean get() = sp.getBoolean("home_labels", true); set(v) = sp.edit().putBoolean("home_labels", v).apply()
     var appsLabels: Boolean get() = sp.getBoolean("apps_labels", true); set(v) = sp.edit().putBoolean("apps_labels", v).apply()
     var swipeDownNotifications: Boolean get() = sp.getBoolean("swipe_down_notif", true); set(v) = sp.edit().putBoolean("swipe_down_notif", v).apply()
-    /** Swiping up on Home opens search instead of the Apps screen. */
     /** Search sends what you type to Google for suggestions; off keeps search entirely on the device. */
     var webSuggestions: Boolean get() = sp.getBoolean("web_suggestions", true); set(v) = sp.edit().putBoolean("web_suggestions", v).apply()
     var swipeUpSearch: Boolean get() = sp.getBoolean("swipe_up_search", false); set(v) = sp.edit().putBoolean("swipe_up_search", v).apply()
@@ -43,13 +46,16 @@ class Prefs(context: Context) {
     var fillEmptyCells: Boolean get() = sp.getBoolean("fill_empty_cells", true); set(v) = sp.edit().putBoolean("fill_empty_cells", v).apply()
     /** Settings › Liquid glass: refraction, vibrancy and a lit rim on the blurred glass (pills, folders, widgets). */
     var liquidGlass: Boolean get() = sp.getBoolean("liquid_glass", true); set(v) = sp.edit().putBoolean("liquid_glass", v).apply()
-    /** Settings › Liquid glass: the blur radius, in dp, of each blurred background. */
-    var blurAppSearch: Int get() = sp.getInt("blur_app_search", 72); set(v) = sp.edit().putInt("blur_app_search", v).apply()
+    /** Settings › Liquid glass: the blur radius, in dp, of each blurred background (all set to 40dp). */
+    var blurAppSearch: Int get() = sp.getInt("blur_app_search", 40); set(v) = sp.edit().putInt("blur_app_search", v).apply()
     var blurHomePill: Int get() = sp.getInt("blur_home_pill", 40); set(v) = sp.edit().putInt("blur_home_pill", v).apply()
-    var blurAppDrawer: Int get() = sp.getInt("blur_app_drawer", 72); set(v) = sp.edit().putInt("blur_app_drawer", v).apply()
+    var blurAppDrawer: Int get() = sp.getInt("blur_app_drawer", 40); set(v) = sp.edit().putInt("blur_app_drawer", v).apply()
     var blurSearchBar: Int get() = sp.getInt("blur_search_bar", 40); set(v) = sp.edit().putInt("blur_search_bar", v).apply()
     var blurFolder: Int get() = sp.getInt("blur_folder", 40); set(v) = sp.edit().putInt("blur_folder", v).apply()
     var blurWidget: Int get() = sp.getInt("blur_widget", 40); set(v) = sp.edit().putInt("blur_widget", v).apply()
+    /** Settings › Liquid glass: lens height and strength, in dp. */
+    var refractionHeight: Int get() = sp.getInt("refraction_height", 12); set(v) = sp.edit().putInt("refraction_height", v).apply()
+    var refractionAmount: Int get() = sp.getInt("refraction_amount", 24); set(v) = sp.edit().putInt("refraction_amount", v).apply()
     var lockLayout: Boolean get() = sp.getBoolean("lock_layout", false); set(v) = sp.edit().putBoolean("lock_layout", v).apply()
     var addNewApps: Boolean get() = sp.getBoolean("add_new_apps", false); set(v) = sp.edit().putBoolean("add_new_apps", v).apply()
     var themedIcons: Boolean get() = sp.getBoolean("themed_icons", false); set(v) = sp.edit().putBoolean("themed_icons", v).apply()
@@ -93,7 +99,6 @@ class Prefs(context: Context) {
     /** Blur the wallpaper behind the Home screen; [homeBlurAmount] is % of the Apps screen blur. */
     var homeBlur: Boolean get() = sp.getBoolean("home_blur", false); set(v) = sp.edit().putBoolean("home_blur", v).apply()
     var homeBlurAmount: Int get() = sp.getInt("home_blur_amount", 40); set(v) = sp.edit().putInt("home_blur_amount", v).apply()
-    /** 0..1 of the full blur, 0 when off. */
     /** The baked wallpaper blur is gone (the Apps screen's own look is set by its opacity): always 0 = sharp. */
     val homeBlurLevel: Float get() = 0f
 
