@@ -3,7 +3,6 @@ package com.oneuiclone.home.settings
 import android.app.WallpaperManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
@@ -15,9 +14,6 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.widget.SeekBar
-import android.widget.Switch
-import android.widget.TextView
 import android.widget.Toast
 import com.oneuiclone.home.WallpaperActivity
 
