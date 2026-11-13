@@ -46,19 +46,14 @@ class BackgroundController(
     /** Settings › Liquid glass: the blur radius (px) of the Apps screen's background, and of the search page's. */
     var appsRadiusPx = maxRadiusPx
     var searchRadiusPx = maxRadiusPx
-    /** Settings › Liquid glass: full-folder backdrop blur radius. */
-    var folderRadiusPx = maxRadiusPx
     /** The search page is open: the Apps screen's background is then blurred by [searchRadiusPx]. */
     var searchOpen = false
 
     /** Applies the background again (after a radius or [searchOpen] changed). */
     fun refresh() = apply()
 
-    private fun radiusOf(k: Kind): Float = when (k) {
-        Kind.APPS, Kind.APPS_FOLDER -> k.blurFactor * (if (searchOpen) searchRadiusPx else appsRadiusPx)
-        Kind.FOLDER -> k.blurFactor * folderRadiusPx
-        else -> k.blurFactor * maxRadiusPx
-    }
+    private fun radiusOf(k: Kind): Float =
+        if (k == Kind.APPS || k == Kind.APPS_FOLDER) k.blurFactor * (if (searchOpen) searchRadiusPx else appsRadiusPx) else k.blurFactor * maxRadiusPx
 
     private fun dimOf(k: Kind) = if (k == Kind.APPS || k == Kind.APPS_FOLDER) k.dim * appsBlurScale else k.dim
 
@@ -104,7 +99,7 @@ class BackgroundController(
             // launcher-drawn wallpaper: exact One UI pipeline (blur + colour curve), dim on top
             if (lastRadius != 0) { activity.window.setBackgroundBlurRadius(0); lastRadius = 0 }
             val radiusPx = p * radiusOf(kind) + q * radiusOf(from)
-            val reach = maxOf(maxRadiusPx, appsRadiusPx, searchRadiusPx, folderRadiusPx)
+            val reach = maxOf(maxRadiusPx, appsRadiusPx, searchRadiusPx)
             wallpaper.maxBlurRadiusPx = reach
             wallpaper.setBlur(if (reach > 0f) radiusPx / reach else 0f)
             scrim.curveAlpha = 0f
