@@ -151,7 +151,8 @@ class HomeSearchButton(
             canvas.drawRoundRect(rect, r, r, progressFill)
             canvas.restore()
         }
-        if (liquid.enabled) liquid.drawChrome(canvas, rect, r, isDark()) else canvas.drawRoundRect(rect, r, r, border)
+        if (liquid.enabled) liquid.drawChrome(canvas, rect, r, isDark())
+        canvas.drawRoundRect(rect, r, r, border)
         icon?.invoke(canvas, glyphLeft, (height - glyphBox) / 2f, glyphBox, glyph)
         val fm = text.fontMetrics
         canvas.drawText(label, textStart, height / 2f - (fm.ascent + fm.descent) / 2f, text)

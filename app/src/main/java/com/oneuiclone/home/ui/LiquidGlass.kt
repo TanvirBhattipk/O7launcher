@@ -54,11 +54,9 @@ class LiquidGlass(
 
     // ---- backdrop (lens) ----
     private val fallback = GlassPaint()
-    private val lens: RuntimeShader? = if (enabled) runCatching {
-        RuntimeShader(GlassShaders.refraction(mapped = true, dispersion = params.chromaticAberration > 0f))
-    }.getOrNull() else null
+    private val poolKey = if (params.chromaticAberration > 0f) 1 else 0
+    private val lens: RuntimeShader? = if (enabled) pooled(poolKey) else null
     private val lensPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private var boundBitmap: android.graphics.Bitmap? = null
     private val toGlass = Matrix()
     private val m = FloatArray(9)
     private val tintPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -68,12 +66,12 @@ class LiquidGlass(
      * [toWindow] is the canvas -> window matrix (`transformMatrixToGlobal`), as [GlassPaint.aim] takes.
      * [opacity] scales the whole background (glass and tint).
      */
-    fun drawBase(canvas: Canvas, rect: RectF, radius: Float, glass: WidgetGlass?, toWindow: Matrix, tint: Int, opacity: Float = 1f) {
+    fun drawBase(canvas: Canvas, rect: RectF, radius: Float, glass: WidgetGlass?, toWindow: Matrix, tint: Int = 0, opacity: Float = 1f) {
         val bmp = glass?.bitmap
         val shader = lens
         if (glass != null && bmp != null && shader != null && canvas.isHardwareAccelerated) {
-            if (boundBitmap !== bmp) {
-                boundBitmap = bmp
+            if (poolBound[poolKey] !== bmp) {
+                poolBound[poolKey] = bmp
                 shader.setInputShader("content", BitmapShader(bmp, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP))
             }
             // canvas -> window -> glass bitmap pixels (the glass is window-fixed, `scale` window px per bitmap px)
@@ -100,8 +98,10 @@ class LiquidGlass(
             fallback.paint.alpha = (255 * opacity).toInt().coerceIn(0, 255)
             canvas.drawRoundRect(rect, radius, radius, fallback.paint)
         }
-        tintPaint.color = scaleAlpha(tint, opacity)
-        canvas.drawRoundRect(rect, radius, radius, tintPaint)
+        if (Color.alpha(tint) > 0) {
+            tintPaint.color = scaleAlpha(tint, opacity)
+            canvas.drawRoundRect(rect, radius, radius, tintPaint)
+        }
     }
 
     // ---- chrome: sheen, rim, press ----
@@ -215,6 +215,12 @@ class LiquidGlass(
     }
 
     companion object {
+        // one lens shader per variant, shared by every glass surface: uniforms are set right before each draw
+        private val pool = arrayOfNulls<RuntimeShader>(2)
+        private val poolBound = arrayOfNulls<android.graphics.Bitmap>(2)
+        private fun pooled(k: Int): RuntimeShader? = pool[k]
+            ?: runCatching { RuntimeShader(GlassShaders.refraction(mapped = true, dispersion = k == 1)) }.getOrNull()?.also { pool[k] = it }
+
         private fun scaleAlpha(c: Int, f: Float) =
             (c and 0x00FFFFFF) or ((Color.alpha(c) * f).toInt().coerceIn(0, 255) shl 24)
 

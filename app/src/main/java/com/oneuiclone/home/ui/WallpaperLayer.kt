@@ -36,6 +36,7 @@ class WallpaperLayer(context: Context) : android.view.ViewGroup(context) {
 
     /** Quarter-resolution, blurred & colour-graded copy. */
     private val blurView = BitmapView(context)
+    private val liquid = com.oneuiclone.home.settings.Prefs(context).liquidGlass
     /** Full-resolution copy used for zoom. */
     private val sharpView = BitmapView(context)
 
@@ -376,7 +377,10 @@ class WallpaperLayer(context: Context) : android.view.ViewGroup(context) {
         val target = curveMatrix().array
         val id = ColorMatrix().array
         val t = p.coerceIn(0f, 1f)
-        return ColorMatrix(FloatArray(20) { id[it] + (target[it] - id[it]) * t })
+        val m = ColorMatrix(FloatArray(20) { id[it] + (target[it] - id[it]) * t })
+        // liquid glass vibrancy (Kyant `vibrancy()`: saturation 1.5) on the blurred background, as strong as the blur
+        if (liquid) m.postConcat(ColorMatrix().apply { setSaturation(1f + 0.5f * t) })
+        return m
     }
 
     /** Draw the (unblurred) wallpaper copy into [c] for backdrop snapshots. Returns false if unavailable. */

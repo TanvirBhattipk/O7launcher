@@ -141,6 +141,7 @@ class SearchPill(context: Context, private val dp: DeviceProfile, private val hi
         if (liquid.enabled) {
             liquid.drawBase(canvas, rect, r, glass, drawnAt, baseFill, backgroundOpacity)
             liquid.drawChrome(canvas, rect, r, SearchColors.of(context) === SearchColors.dark(), backgroundOpacity)
+            canvas.drawRoundRect(rect, r, r, border)
         } else {
             if (glassPaint.aim(glass, drawnAt)) {
                 glassPaint.paint.alpha = (255 * backgroundOpacity).toInt()

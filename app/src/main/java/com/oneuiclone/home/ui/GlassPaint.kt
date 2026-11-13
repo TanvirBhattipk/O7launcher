@@ -33,7 +33,9 @@ class GlassPaint {
  * Fills itself with [glass] (the blurred wallpaper behind it on screen) under [fill], as a closed folder's
  * container does with Style › Blur. The glass is fixed to the window, so it redraws whenever the view moves.
  */
-class GlassView(context: android.content.Context, private val glass: WidgetGlass, private val fill: Int) : android.view.View(context) {
+class GlassView(context: android.content.Context, private val glass: WidgetGlass, private val fill: Int, private val cornerRadius: Float = 0f) : android.view.View(context) {
+    private val liquid = LiquidGlass(context)
+    private val rectF = android.graphics.RectF()
     private val glassPaint = GlassPaint()
     private val fillPaint = Paint().apply { color = fill }
     private val toWindow = Matrix()
@@ -58,6 +60,11 @@ class GlassView(context: android.content.Context, private val glass: WidgetGlass
 
     override fun onDraw(canvas: android.graphics.Canvas) {
         drawnAt.reset(); transformMatrixToGlobal(drawnAt)
+        if (liquid.enabled) {
+            rectF.set(0f, 0f, width.toFloat(), height.toFloat())
+            liquid.drawBase(canvas, rectF, cornerRadius, glass, drawnAt, fill)
+            return
+        }
         if (glassPaint.aim(glass, drawnAt)) canvas.drawPaint(glassPaint.paint)
         canvas.drawPaint(fillPaint)
     }

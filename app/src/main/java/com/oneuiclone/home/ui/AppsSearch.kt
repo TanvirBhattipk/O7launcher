@@ -152,6 +152,7 @@ class AppsSearch(
     private lateinit var origin: Origin
     /** Glass drawn under the pill's fill while it morphs ([Origin.glass]). */
     private var pillGlass: WidgetGlass? = null
+    private val liquid = LiquidGlass(context)
 
     /**
      * The pill's background: [pillGlass] (fixed to the window, like the Home pill it grows from) in the pill's shape,
@@ -164,9 +165,10 @@ class AppsSearch(
         override fun draw(canvas: android.graphics.Canvas) {
             pillGlass?.let { g ->
                 toWindow.reset(); pill.transformMatrixToGlobal(toWindow)
-                if (glassPaint.aim(g, toWindow)) {
+                rect.set(bounds)
+                if (liquid.enabled) liquid.drawBase(canvas, rect, pillBg.cornerRadius, g, toWindow, 0, barOpacity)
+                else if (glassPaint.aim(g, toWindow)) {
                     glassPaint.paint.alpha = (255 * barOpacity).toInt()
-                    rect.set(bounds)
                     canvas.drawRoundRect(rect, pillBg.cornerRadius, pillBg.cornerRadius, glassPaint.paint)
                 }
             }

@@ -424,6 +424,8 @@ class FolderController(
         }
         private val glass = src.glass
         private val glassPaint = GlassPaint()
+        private val liquid = LiquidGlass(context)
+        private val rectF = android.graphics.RectF()
         private val toWindow = android.graphics.Matrix()
         private val path = android.graphics.Path()
         override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -433,7 +435,12 @@ class FolderController(
         fun moved() { if (glass != null) invalidate() }
         override fun onDraw(canvas: Canvas) {
             toWindow.reset(); transformMatrixToGlobal(toWindow)
-            if (glassPaint.aim(glass, toWindow)) canvas.drawPath(path, glassPaint.paint)
+            if (liquid.enabled && glass?.bitmap != null) {
+                rectF.set(0f, 0f, width.toFloat(), height.toFloat())
+                canvas.save(); canvas.clipPath(path)
+                liquid.drawBase(canvas, rectF, width * 0.3f, glass, toWindow)
+                canvas.restore()
+            } else if (glassPaint.aim(glass, toWindow)) canvas.drawPath(path, glassPaint.paint)
             canvas.drawPath(path, paint)
         }
     }
@@ -577,7 +584,7 @@ class FolderPanel(
         c.isClickable = true                                          // taps on the card itself don't close it
         c.elevation = dp.dp(2f)
         if (folderGlass != null) {
-            c.addView(GlassView(context, folderGlass, folderFill), LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+            c.addView(GlassView(context, folderGlass, folderFill, dp.dp(28f)), LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         } else c.addView(glass, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         addView(c, LayoutParams(cardW, cardH).apply { leftMargin = left; topMargin = top })
 
