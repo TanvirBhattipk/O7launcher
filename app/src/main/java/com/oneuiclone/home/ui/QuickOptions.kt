@@ -24,7 +24,6 @@ import android.widget.TextView
 import com.oneuiclone.home.device.DeviceProfile
 import com.oneuiclone.home.icons.IconFactory
 import com.oneuiclone.home.motion.Easing
-import kotlin.math.roundToInt
 
 /** A global option (bottom row of the One UI quick option popup). */
 class QuickOption(val label: String, val glyph: Int, val action: () -> Unit) {
@@ -88,14 +87,13 @@ class QuickOptionPopup(
         card.clipToOutline = true
         card.addView(backdropView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         card.addView(content, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
-        val liquid = LiquidGlass(context)
-        if (liquid.enabled) {
+        if (LiquidGlass.enabled) {
             // sheen + specular rim over the card; draws on top of the content and takes no touches
             val chrome = object : View(context) {
                 private val r = RectF()
                 override fun onDraw(canvas: Canvas) {
                     r.set(0f, 0f, width.toFloat(), height.toFloat())
-                    liquid.drawChrome(canvas, r, dp.dp(20f), night)
+                    LiquidGlass.drawChrome(canvas, r, dp.dp(20f), night)
                 }
             }
             card.addView(chrome, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
