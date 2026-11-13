@@ -54,7 +54,7 @@ class DeviceProfile(
      * changing Home's icon size (or its icon scale) never changes it.
      */
     val recentsIconSizePx = (cellWidth * 0.627f * 0.95f).roundToInt().let { if (it % 2 == 1) it + 1 else it }
-    val labelTextSizePx = dp(13f) * 0.95f * labelScale                 // 5 % smaller than the stock 13 dp: Home and the Apps screen
+    val labelTextSizePx = dp(13f) * 0.855f * labelScale                // 10 % smaller than before (13 dp x 0.95 x 0.9): the "Label size" slider's 100 %; Home and the Apps screen
     val iconLabelGapPx = dp(5.5f)
 
     /** The dock stays exactly where the stock layout puts it. */
