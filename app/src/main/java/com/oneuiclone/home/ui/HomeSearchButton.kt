@@ -38,8 +38,6 @@ class HomeSearchButton(
         strokeCap = Paint.Cap.ROUND
     }
     private val rect = RectF()
-    private val liquid = LiquidGlass(context, onChange = { invalidate() })
-    private fun isDark() = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
     /**
      * Folder glass (as a folder set to Style › Blur): the blurred wallpaper behind the pill under the folder colour
@@ -65,6 +63,7 @@ class HomeSearchButton(
         return (base and 0x00FFFFFF) or ((android.graphics.Color.alpha(base) * (1f - glassTransparency)).toInt() shl 24)
     }
     private val glassPaint = GlassPaint()
+    private val rim = LiquidRim()
     private val toWindow = android.graphics.Matrix()
     private val drawnAt = android.graphics.Matrix()
     private val moved = android.view.ViewTreeObserver.OnPreDrawListener {
@@ -136,23 +135,22 @@ class HomeSearchButton(
     )
 
     override fun onDraw(canvas: Canvas) {
-        val inset = dp.dp(0.5f)
+        val liquid = glass != null && LiquidGlass.enabled
+        val inset = dp.dp(if (liquid) 0.8f else 0.5f)
         rect.set(inset, inset, width - inset, height - inset)
         val r = rect.height() / 2f
         drawnAt.reset(); transformMatrixToGlobal(drawnAt)
-        if (liquid.enabled) liquid.drawBase(canvas, rect, r, glass, drawnAt, fill.color)
-        else {
-            if (glassPaint.aim(glass, drawnAt)) canvas.drawRoundRect(rect, r, r, glassPaint.paint)
-            canvas.drawRoundRect(rect, r, r, fill)
-        }
+        if (glassPaint.aimLiquid(canvas, glass, drawnAt, rect, r, dp.dp(1f))) canvas.drawRoundRect(rect, r, r, glassPaint.paint)
+        canvas.drawRoundRect(rect, r, r, fill)
         if (progress >= 0f) {
             canvas.save()
             canvas.clipRect(rect.left, rect.top, rect.left + rect.width() * progress, rect.bottom)
             canvas.drawRoundRect(rect, r, r, progressFill)
             canvas.restore()
         }
-        if (liquid.enabled) liquid.drawChrome(canvas, rect, r, isDark())
+        border.strokeWidth = dp.dp(if (liquid) 1.5f else 1f)                   // a slightly thick border with liquid glass
         canvas.drawRoundRect(rect, r, r, border)
+        if (liquid) rim.draw(canvas, rect, r, dp.dp(LiquidGlass.RIM_DP))
         icon?.invoke(canvas, glyphLeft, (height - glyphBox) / 2f, glyphBox, glyph)
         val fm = text.fontMetrics
         canvas.drawText(label, textStart, height / 2f - (fm.ascent + fm.descent) / 2f, text)
@@ -161,9 +159,8 @@ class HomeSearchButton(
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> { liquid.pressDown(event.x, event.y); animate().scaleX(0.94f).scaleY(0.94f).setDuration(120).setInterpolator(Easing.BASIC).start() }
-            MotionEvent.ACTION_MOVE -> liquid.pressMove(event.x, event.y)
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { liquid.pressUp(); animate().scaleX(1f).scaleY(1f).setDuration(200).setInterpolator(Easing.BASIC).start() }
+            MotionEvent.ACTION_DOWN -> animate().scaleX(0.94f).scaleY(0.94f).setDuration(120).setInterpolator(Easing.BASIC).start()
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> animate().scaleX(1f).scaleY(1f).setDuration(200).setInterpolator(Easing.BASIC).start()
         }
         return super.onTouchEvent(event)
     }
