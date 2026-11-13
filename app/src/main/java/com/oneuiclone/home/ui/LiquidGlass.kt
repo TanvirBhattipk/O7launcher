@@ -4,6 +4,7 @@ import android.graphics.BlendMode
 import android.graphics.Canvas
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.RuntimeShader
@@ -29,8 +30,39 @@ object LiquidGlass {
     /** Vibrancy: the glass is made more colourful (the library's saturation 1.5). */
     val vibrancy = ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(1.5f) })
 
+    /** Custom saturation filter for backdrop views (e.g. BlurBackdropView). */
+    fun saturationFilter(saturation: Float): ColorMatrixColorFilter =
+        ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(saturation) })
+
     /** True when [canvas] can draw the shaders. */
     fun usable(canvas: Canvas) = enabled && canvas.isHardwareAccelerated
+
+    private val baseGlassPaint by lazy { GlassPaint() }
+    private val chromeRim by lazy { LiquidRim() }
+
+    /** Draws the blurred wallpaper base inside [rect] for FolderIconView. */
+    fun drawBase(
+        canvas: Canvas,
+        rect: RectF,
+        radius: Float,
+        glass: WidgetGlass?,
+        glassAt: Matrix,
+        tint: Int,
+        alpha: Float
+    ) {
+        if (baseGlassPaint.aim(glass, glassAt)) {
+            baseGlassPaint.paint.alpha = (255 * alpha).toInt()
+            baseGlassPaint.paint.colorFilter = if (enabled) vibrancy else null
+            canvas.drawRoundRect(rect, radius, radius, baseGlassPaint.paint)
+        }
+    }
+
+    /** Draws the specular liquid rim highlight over a popup card for QuickOptionPopup. */
+    fun drawChrome(canvas: Canvas, rect: RectF, radius: Float, night: Boolean) {
+        val rimWidth = RIM_DP * 3f
+        val strength = if (night) 0.55f else 0.75f
+        chromeRim.draw(canvas, rect, radius, rimWidth, strength)
+    }
 
     private const val SDF = """
 float sdRoundedRect(float2 coord, float2 halfSize, float radius) {
