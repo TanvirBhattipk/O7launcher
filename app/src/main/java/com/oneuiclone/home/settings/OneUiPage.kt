@@ -7,11 +7,15 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
@@ -33,6 +37,7 @@ abstract class OneUiPage : Activity() {
     protected val d get() = resources.displayMetrics.density
     protected fun dp(v: Float) = (v * d).toInt()
     protected lateinit var list: LinearLayout
+    protected var searchFilter: ((String) -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,23 +57,71 @@ abstract class OneUiPage : Activity() {
 
     protected var current: LinearLayout? = null
 
-    /** A non-extended page's app bar: back, [title], and [trailing] (an action) at the end. */
-    protected fun appBar(title: String, trailing: View? = null) {
-        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        bar.addView(BackGlyph(this, text).apply {
+    /** A modern page's app bar: back, [title], an optional search bar, and [trailing] action. */
+    protected fun appBar(title: String, searchHint: String? = null, trailing: View? = null) {
+        val rootBar = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        
+        val topRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        topRow.addView(BackGlyph(this, text).apply {
             contentDescription = "Navigate up"
             background = android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(if (night) 0x33FFFFFF else 0x1A000000), null, null)
             setOnClickListener { finish() }
         }, LinearLayout.LayoutParams(dp(48f), dp(48f)))
-        bar.addView(TextView(this).apply {
+        
+        topRow.addView(TextView(this).apply {
             text = title
             setTextColor(this@OneUiPage.text)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
             typeface = Fonts.ui(this@OneUiPage, 700)
             setPadding(dp(8f), 0, 0, 0)
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        trailing?.let { bar.addView(it, LinearLayout.LayoutParams(dp(48f), dp(48f))) }
-        list.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(72f)))
+        
+        trailing?.let { topRow.addView(it, LinearLayout.LayoutParams(dp(48f), dp(48f))) }
+        rootBar.addView(topRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56f)))
+
+        // Optional pill-shaped search bar matching the reference design
+        if (searchHint != null) {
+            val searchPill = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = GradientDrawable().apply {
+                    cornerRadius = 100f * d
+                    setColor(if (night) 0xFF222222.toInt() else 0xFFEBEBEF.toInt())
+                }
+                setPadding(dp(16f), dp(10f), dp(16f), dp(10f))
+            }
+            
+            // Magnifying glass symbol
+            searchPill.addView(TextView(this).apply {
+                text = "🔍"
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                setPadding(0, 0, dp(12f), 0)
+            })
+
+            val input = EditText(this).apply {
+                hint = searchHint
+                setHintTextColor(sub)
+                setTextColor(this@OneUiPage.text)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                background = null
+                isSingleLine = true
+                setPadding(0, 0, 0, 0)
+                addTextChangedListener(object : TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after) {}
+                    override fun onTextChanged(s: CharSequence?, start: Int, before, count) {
+                        searchFilter?.invoke(s?.toString() ?: "")
+                    }
+                    override fun afterTextChanged(s: Editable?) {}
+                })
+            }
+            searchPill.addView(input, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            
+            rootBar.addView(searchPill, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                setMargins(dp(4f), dp(4f), dp(4f), dp(16f))
+            })
+        }
+
+        list.addView(rootBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     }
 
     /** One UI's back chevron. */
@@ -90,7 +143,7 @@ abstract class OneUiPage : Activity() {
         val c = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply { cornerRadius = 26f * d; setColor(cardColor) }
-            clipToOutline = true                                              // first/last row highlights follow the corners
+            clipToOutline = true // first/last row highlights follow the corners
             setPadding(0, dp(6f), 0, dp(6f))
         }
         current = c
@@ -154,11 +207,15 @@ abstract class OneUiPage : Activity() {
     }
 
     protected fun header(t: String) {
-        current?.addView(TextView(this).apply {
-            text = t; setTextColor(primary); setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-            typeface = Fonts.ui(this@OneUiPage, 600)
-            setPadding(dp(24f), dp(12f), dp(24f), dp(4f))
-        })
+        // Renders clean section headers matching the reference image style
+        val headerView = TextView(this).apply {
+            text = t.uppercase()
+            setTextColor(sub)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            typeface = Fonts.ui(this@OneUiPage, 700)
+            setPadding(dp(16f), dp(16f), dp(16f), dp(6f))
+        }
+        list.addView(headerView)
     }
 
     protected fun row(title: String, summary: CharSequence?, summaryColor: Int, trailing: View?, onClick: (() -> Unit)?, titleWeight: Int = 400): LinearLayout {
@@ -180,7 +237,16 @@ abstract class OneUiPage : Activity() {
             setPadding(0, dp(2f), 0, 0)
         })
         r.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        trailing?.let { r.addView(it) }
+        
+        // Add a clean chevron arrow indicator on clickable rows if no trailing view is provided
+        val effectiveTrailing = trailing ?: if (onClick != null) {
+            android.widget.ImageView(this).apply {
+                setImageDrawable(Chevron(sub, dp(12f), d, right = true))
+                scaleType = android.widget.ImageView.ScaleType.CENTER
+            }
+        } else null
+
+        effectiveTrailing?.let { r.addView(it, LinearLayout.LayoutParams(dp(24f), dp(24f))) }
         current?.addView(r)
         return r
     }
@@ -304,7 +370,7 @@ abstract class OneUiPage : Activity() {
             progressTintList = ColorStateList.valueOf(primary); thumbTintList = ColorStateList.valueOf(primary)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
-                    ((label.getChildAt(0) as LinearLayout).getChildAt(1) as TextView).text = "$p$unit"
+                    ((label.getChildAt(0) as LinearLayout).getChildAlt(1) as TextView).text = "$p$unit"
                     if (fromUser) onLive?.invoke(p)
                 }
                 override fun onStartTrackingTouch(s: SeekBar?) {}
