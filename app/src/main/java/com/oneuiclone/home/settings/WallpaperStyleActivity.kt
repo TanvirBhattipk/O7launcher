@@ -90,8 +90,8 @@ class WallpaperStyleActivity : OneUiPage() {
         }
         card {
             header("Search blur")
-            slider("App search background blur", prefs.blurAppSearch, 0, 100, step = 10) { prefs.blurAppSearch = it }
-            slider("Search bar blur", prefs.blurSearchBar, 0, 100, step = 10) { prefs.blurSearchBar = it }
+            slider("App search background blur", prefs.blurAppSearch, 0, 100) { prefs.blurAppSearch = (it / 10) * 10 }
+            slider("Search bar blur", prefs.blurSearchBar, 0, 100) { prefs.blurSearchBar = (it / 10) * 10 }
         }
         card {
             row("Colour palette", "Choose a palette based on colours from your wallpaper.", sub,
