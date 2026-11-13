@@ -11,7 +11,9 @@ import android.view.View
 class BlurBackdropView(context: Context) : View(context) {
     private var bmp: Bitmap? = null
     var tint = 0
-    private val p = Paint(Paint.FILTER_BITMAP_FLAG)
+    private val p = Paint(Paint.FILTER_BITMAP_FLAG).apply {
+        if (com.oneuiclone.home.settings.Prefs(context).liquidGlass) colorFilter = LiquidGlass.saturationFilter(1.6f)   // header-bar vibrancy
+    }
 
     fun set(b: Bitmap, radius: Float) {
         bmp = b

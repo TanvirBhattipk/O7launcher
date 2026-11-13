@@ -43,6 +43,7 @@ class SearchPill(context: Context, private val dp: DeviceProfile, private val hi
     }
     private val dots = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val rect = RectF()
+    private val liquid = LiquidGlass(context, onChange = { invalidate() })
     private val inset = dp.dp(0.5f)
 
     /** The blurred wallpaper behind the pill (as the Home screen's Search button has it); null for none. */
@@ -78,6 +79,16 @@ class SearchPill(context: Context, private val dp: DeviceProfile, private val hi
     init {
         isClickable = true
         applyColors()
+    }
+
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(event: android.view.MotionEvent): Boolean {
+        if (!menuIcon) when (event.actionMasked) {
+            android.view.MotionEvent.ACTION_DOWN -> liquid.pressDown(event.x, event.y)
+            android.view.MotionEvent.ACTION_MOVE -> liquid.pressMove(event.x, event.y)
+            android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> liquid.pressUp()
+        }
+        return super.onTouchEvent(event)
     }
 
     override fun onAttachedToWindow() {
@@ -127,12 +138,17 @@ class SearchPill(context: Context, private val dp: DeviceProfile, private val hi
         rect.set(inset, inset, width - inset, height - inset)
         val r = rect.height() / 2f
         drawnAt.reset(); transformMatrixToGlobal(drawnAt)
-        if (glassPaint.aim(glass, drawnAt)) {
-            glassPaint.paint.alpha = (255 * backgroundOpacity).toInt()
-            canvas.drawRoundRect(rect, r, r, glassPaint.paint)
+        if (liquid.enabled) {
+            liquid.drawBase(canvas, rect, r, glass, drawnAt, baseFill, backgroundOpacity)
+            liquid.drawChrome(canvas, rect, r, SearchColors.of(context) === SearchColors.dark(), backgroundOpacity)
+        } else {
+            if (glassPaint.aim(glass, drawnAt)) {
+                glassPaint.paint.alpha = (255 * backgroundOpacity).toInt()
+                canvas.drawRoundRect(rect, r, r, glassPaint.paint)
+            }
+            canvas.drawRoundRect(rect, r, r, fill)
+            canvas.drawRoundRect(rect, r, r, border)
         }
-        canvas.drawRoundRect(rect, r, r, fill)
-        canvas.drawRoundRect(rect, r, r, border)
         // magnifier glyph (24dp box)
         val box = dp.dp(24f)
         val gx = dp.dp(16f)

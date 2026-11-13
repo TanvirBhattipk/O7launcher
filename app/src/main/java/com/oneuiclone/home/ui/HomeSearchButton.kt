@@ -38,6 +38,8 @@ class HomeSearchButton(
         strokeCap = Paint.Cap.ROUND
     }
     private val rect = RectF()
+    private val liquid = LiquidGlass(context, onChange = { invalidate() })
+    private fun isDark() = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
     /**
      * Folder glass (as a folder set to Style › Blur): the blurred wallpaper behind the pill under the folder colour
@@ -138,15 +140,18 @@ class HomeSearchButton(
         rect.set(inset, inset, width - inset, height - inset)
         val r = rect.height() / 2f
         drawnAt.reset(); transformMatrixToGlobal(drawnAt)
-        if (glassPaint.aim(glass, drawnAt)) canvas.drawRoundRect(rect, r, r, glassPaint.paint)
-        canvas.drawRoundRect(rect, r, r, fill)
+        if (liquid.enabled) liquid.drawBase(canvas, rect, r, glass, drawnAt, fill.color)
+        else {
+            if (glassPaint.aim(glass, drawnAt)) canvas.drawRoundRect(rect, r, r, glassPaint.paint)
+            canvas.drawRoundRect(rect, r, r, fill)
+        }
         if (progress >= 0f) {
             canvas.save()
             canvas.clipRect(rect.left, rect.top, rect.left + rect.width() * progress, rect.bottom)
             canvas.drawRoundRect(rect, r, r, progressFill)
             canvas.restore()
         }
-        canvas.drawRoundRect(rect, r, r, border)
+        if (liquid.enabled) liquid.drawChrome(canvas, rect, r, isDark()) else canvas.drawRoundRect(rect, r, r, border)
         icon?.invoke(canvas, glyphLeft, (height - glyphBox) / 2f, glyphBox, glyph)
         val fm = text.fontMetrics
         canvas.drawText(label, textStart, height / 2f - (fm.ascent + fm.descent) / 2f, text)
@@ -155,8 +160,9 @@ class HomeSearchButton(
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> animate().scaleX(0.94f).scaleY(0.94f).setDuration(120).setInterpolator(Easing.BASIC).start()
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> animate().scaleX(1f).scaleY(1f).setDuration(200).setInterpolator(Easing.BASIC).start()
+            MotionEvent.ACTION_DOWN -> { liquid.pressDown(event.x, event.y); animate().scaleX(0.94f).scaleY(0.94f).setDuration(120).setInterpolator(Easing.BASIC).start() }
+            MotionEvent.ACTION_MOVE -> liquid.pressMove(event.x, event.y)
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { liquid.pressUp(); animate().scaleX(1f).scaleY(1f).setDuration(200).setInterpolator(Easing.BASIC).start() }
         }
         return super.onTouchEvent(event)
     }

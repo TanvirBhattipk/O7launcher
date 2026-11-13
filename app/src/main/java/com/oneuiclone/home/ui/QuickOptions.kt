@@ -88,6 +88,18 @@ class QuickOptionPopup(
         card.clipToOutline = true
         card.addView(backdropView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         card.addView(content, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        val liquid = LiquidGlass(context)
+        if (liquid.enabled) {
+            // sheen + specular rim over the card; draws on top of the content and takes no touches
+            val chrome = object : View(context) {
+                private val r = RectF()
+                override fun onDraw(canvas: Canvas) {
+                    r.set(0f, 0f, width.toFloat(), height.toFloat())
+                    liquid.drawChrome(canvas, r, dp.dp(20f), night)
+                }
+            }
+            card.addView(chrome, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        }
 
         // ---- title row ----
         val titleRow = FrameLayout(context)
